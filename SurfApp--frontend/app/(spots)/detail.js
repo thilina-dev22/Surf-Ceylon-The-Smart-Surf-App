@@ -25,7 +25,6 @@ const SpotDetailScreen = () => {
 
   // Safely access nested forecast data
   const forecast = spot.forecast || {};
-  const wind = forecast.wind || {};
   const tide = forecast.tide || {};
 
   return (

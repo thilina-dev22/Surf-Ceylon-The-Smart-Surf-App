@@ -1,25 +1,37 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-const SpotCard = ({ spot, onPress }) => (
-  <TouchableOpacity onPress={onPress} style={styles.card}>
-    <View style={styles.infoContainer}>
-      <Text style={styles.name}>{spot.name}</Text>
-      <Text style={styles.region}>{spot.region}</Text>
-      {/* Display the richer forecast data from the backend */}
-      <Text style={styles.details}>
-        Wave: {spot.forecast.waveHeight}m @ {spot.forecast.wavePeriod}s
-      </Text>
-      <Text style={styles.details}>
-        Wind: {spot.forecast.windSpeed} kph
-      </Text>
-    </View>
-    <View style={styles.scoreContainer}>
-      <Text style={styles.scoreLabel}>Suitability</Text>
-      <Text style={styles.score}>{spot.suitability.toFixed(0)}%</Text>
-    </View>
-  </TouchableOpacity>
-);
+const SpotCard = ({ spot, onPress, testID }) => {
+  const waveHeight = spot?.forecast?.waveHeight ?? '?';
+  const wavePeriod = spot?.forecast?.wavePeriod ?? '?';
+  const windSpeed = spot?.forecast?.windSpeed ?? '?';
+  const suitability = typeof spot?.suitability === 'number' ? spot.suitability.toFixed(0) : '-';
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.card}
+      accessibilityRole="button"
+      accessibilityLabel={`Open details for ${spot?.name}`}
+      testID={testID}
+      activeOpacity={0.8}
+    >
+      <View style={styles.infoContainer}>
+        <Text style={styles.name}>{spot?.name}</Text>
+        <Text style={styles.region}>{spot?.region}</Text>
+        {/* Display the richer forecast data from the backend */}
+        <Text style={styles.details}>
+          Wave: {waveHeight}m @ {wavePeriod}s
+        </Text>
+        <Text style={styles.details}>Wind: {windSpeed} kph</Text>
+      </View>
+      <View style={styles.scoreContainer}>
+        <Text style={styles.scoreLabel}>Suitability</Text>
+        <Text style={styles.score}>{suitability}%</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const styles = StyleSheet.create({
   card: { 

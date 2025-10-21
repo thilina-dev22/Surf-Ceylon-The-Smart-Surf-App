@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { UserProvider } from '../context/UserContext';
 import * as Font from 'expo-font'; // Import Font
 import { Ionicons } from '@expo/vector-icons'; // Import a sample Icon set
+import { StatusBar } from 'expo-status-bar';
 
 // NOTE: We need to hide the splash screen once fonts are loaded
 import * as SplashScreen from 'expo-splash-screen'; 
@@ -28,6 +29,7 @@ export default function AppLayout() {
 
   return (
     <UserProvider>
+      <StatusBar style="dark" />
       <Tabs screenOptions={{ tabBarActiveTintColor: '#007bff' }}> 
         <Tabs.Screen 
           name="index" 

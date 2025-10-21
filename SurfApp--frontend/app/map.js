@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useContext } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import { UserContext } from '../context/UserContext';
 import { getSpotsData } from '../data/surfApi';
 
-// --- THIS IS THE FIX #1: ADD YOUR MAPBOX PUBLIC KEY HERE ---
-// You must get this from your account at https://www.mapbox.com/
-const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiaXQyMjAwMzg1MCIsImEiOiJjbWZ4cTdlaDUwOWVtMmtzYmVuczJkdHB3In0.DHQYc1JaOBNIztXu38ihig'; 
+// Prefer environment-based configuration for tokens (Expo supports EXPO_PUBLIC_* env vars)
+const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN; 
 Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 const MapScreen = () => {
@@ -66,7 +66,7 @@ const MapScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Mapbox.MapView style={styles.map}>
         <Mapbox.Camera
           zoomLevel={7}
@@ -95,7 +95,7 @@ const MapScreen = () => {
           );
         })}
       </Mapbox.MapView>
-    </View>
+    </SafeAreaView>
   );
 };
 

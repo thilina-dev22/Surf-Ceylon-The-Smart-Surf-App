@@ -39,16 +39,20 @@ const ProfileScreen = () => {
             <TextInput
               style={styles.input}
               value={String(userPreferences.minWaveHeight)}
-              onChangeText={text => handleUpdate('minWaveHeight', text)}
-              // --- THIS IS THE FIX ---
+              onChangeText={text => {
+                const val = parseFloat(text);
+                handleUpdate('minWaveHeight', Number.isNaN(val) ? '' : val);
+              }}
               keyboardType="numeric" 
             />
             <Text style={styles.label}> to </Text>
             <TextInput
               style={styles.input}
               value={String(userPreferences.maxWaveHeight)}
-              onChangeText={text => handleUpdate('maxWaveHeight', text)}
-              // --- THIS IS THE FIX ---
+              onChangeText={text => {
+                const val = parseFloat(text);
+                handleUpdate('maxWaveHeight', Number.isNaN(val) ? '' : val);
+              }}
               keyboardType="numeric"
             />
           </View>

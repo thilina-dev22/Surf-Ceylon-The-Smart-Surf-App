@@ -1,12 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const path = require('path');
 const app = express();
 const PORT = 3000;
 
 // --- CONFIGURATION ---
-const PYTHON_EXECUTABLE = '../surfapp--ml-engine/venv/Scripts/python.exe'; 
-const ML_SCRIPT_PATH = '../surfapp--ml-engine/predict_service.py';
+const PYTHON_EXECUTABLE = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'venv', 'Scripts', 'python.exe'); 
+const ML_SCRIPT_PATH = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'predict_service.py');
 
 // --- 🎯 FINAL FIX: IN-MEMORY CACHE FOR MOCK DATA ---
 const cache = {
