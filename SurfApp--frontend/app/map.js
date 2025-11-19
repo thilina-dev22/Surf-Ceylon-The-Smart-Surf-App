@@ -7,8 +7,8 @@ import Mapbox from '@rnmapbox/maps';
 import { UserContext } from '../context/UserContext';
 import { getSpotsData } from '../data/surfApi';
 
-// Prefer environment-based configuration for tokens (Expo supports EXPO_PUBLIC_* env vars)
-const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN; 
+// Set Mapbox access token
+const MAPBOX_ACCESS_TOKEN = 'sk.eyJ1IjoiaXQyMjAwMzg1MCIsImEiOiJjbWk1bmxod2wwNmYwMnFzNnkwZmdpd3NvIn0.4JG304IZL8mDcZ24QcYOng';
 Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 const MapScreen = () => {
@@ -18,12 +18,6 @@ const MapScreen = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!MAPBOX_ACCESS_TOKEN || MAPBOX_ACCESS_TOKEN === 'YOUR_MAPBOX_PUBLIC_ACCESS_TOKEN') {
-      setError('Mapbox Access Token is not configured. Please add it in app/map.js');
-      setLoading(false);
-      return;
-    }
-
     const fetchAndSetSpots = async () => {
       try {
         setLoading(true);
