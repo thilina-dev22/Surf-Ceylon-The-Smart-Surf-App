@@ -8,7 +8,7 @@ import { Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const SpotsListScreen = () => {
-  const { userPreferences } = useContext(UserContext);
+  const { userPreferences, userLocation } = useContext(UserContext);
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -16,12 +16,15 @@ const SpotsListScreen = () => {
 
   useEffect(() => {
     fetchSpots();
-  }, [userPreferences]);
+  }, [userPreferences, userLocation]);
 
   const fetchSpots = async () => {
     try {
       setLoading(true);
-      const data = await getSpotsData(userPreferences);
+      // Get all spots with distance info - no filtering by location on this screen
+      const data = await getSpotsData(userPreferences, userLocation);
+      console.log('User location:', userLocation);
+      console.log('Sample spot data:', data[0]?.name, 'distance:', data[0]?.distance);
       setSpots(data);
     } catch (e) {
       console.error("Error fetching spots for list screen:", e);

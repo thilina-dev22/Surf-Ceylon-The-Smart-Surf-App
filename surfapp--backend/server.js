@@ -11,12 +11,12 @@ const PORT = process.env.PORT || 3000;
 const PYTHON_EXECUTABLE = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'venv', 'Scripts', 'python.exe'); 
 const ML_SCRIPT_PATH = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'predict_service.py');
 
-// --- 🎯 FINAL FIX: IN-MEMORY CACHE FOR MOCK DATA ---
+// --- 🎯 OPTIMIZED CACHE FOR BETTER PERFORMANCE ---
 const cache = {
     data: null,
     timestamp: null,
-    // Cache data for 60 seconds to ensure consistency across screen navigations
-    CACHE_DURATION_MS: 60 * 1000, 
+    // Cache data for 5 minutes to reduce ML engine load and improve performance
+    CACHE_DURATION_MS: 5 * 60 * 1000, 
 };
 
 // --- MODEL 2: SUITABILITY CALCULATION (UNCHANGED) ---

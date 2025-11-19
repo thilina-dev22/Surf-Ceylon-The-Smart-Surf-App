@@ -9,6 +9,11 @@ const SpotCard = ({ spot, onPress, testID }) => {
   const windDirection = spot?.forecast?.windDirection ?? '?';
   const tideStatus = spot?.forecast?.tide?.status ?? '-';
   const suitability = typeof spot?.suitability === 'number' ? spot.suitability.toFixed(0) : '-';
+  
+  // Debug logging
+  if (spot?.name === 'Midigama') {
+    console.log('Midigama card - distance:', spot.distance, 'type:', typeof spot.distance);
+  }
 
   // Determine color based on suitability
   const getGradientColors = () => {
@@ -43,7 +48,12 @@ const SpotCard = ({ spot, onPress, testID }) => {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.name}>{spot?.name}</Text>
-            <Text style={styles.region}>{spot?.region}</Text>
+            <View style={styles.regionRow}>
+              <Text style={styles.region}>{spot?.region}</Text>
+              {spot?.distance !== undefined && spot?.distance !== null && (
+                <Text style={styles.distance}>• {spot.distance}km away</Text>
+              )}
+            </View>
           </View>
           
           <LinearGradient
@@ -131,9 +141,19 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     marginBottom: 4,
   },
+  regionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   region: { 
     fontSize: 14, 
     color: '#6b7280',
+  },
+  distance: {
+    fontSize: 12,
+    color: '#0ea5e9',
+    fontWeight: '600',
+    marginLeft: 6,
   },
   scoreContainer: { 
     paddingHorizontal: 16,

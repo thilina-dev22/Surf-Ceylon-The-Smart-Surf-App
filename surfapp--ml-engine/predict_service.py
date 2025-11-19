@@ -14,9 +14,13 @@ STORMGLASS_API_KEY = os.getenv("STORMGLASS_API_KEY")
 MODEL_FILENAME = 'surf_forecast_model.joblib'
 MODEL_PATH = os.path.join(os.path.dirname(__file__), MODEL_FILENAME)
 
+# Use mock data by default for performance (31 spots with API calls would timeout)
+USE_MOCK_DATA = True  # Set to False only if you have valid API key and want real data
+
 # Validate API key on startup
 if not STORMGLASS_API_KEY or STORMGLASS_API_KEY == 'your_api_key_here':
     print("Warning: STORMGLASS_API_KEY not configured. Will use mock data.", file=sys.stderr)
+    USE_MOCK_DATA = True
 
 # --- Definitions (MUST MATCH train_model.py) ---
 FEATURE_NAMES = [
@@ -26,13 +30,46 @@ FEATURE_NAMES = [
 ]
 TARGET_NAMES = ['waveHeight', 'wavePeriod', 'windSpeed', 'windDirection']
 
-# --- THIS IS THE FIX: 'coords' is now a simple flat array [lon, lat] ---
+# --- Comprehensive Sri Lankan Surf Spots (coords format: [longitude, latitude]) ---
 SURF_SPOTS = [
-    {'id': '1', 'name': 'Arugam Bay', 'region': 'East Coast', 'coords': [81.829, 6.843]},
-    {'id': '2', 'name': 'Weligama', 'region': 'South Coast', 'coords': [80.426, 5.972]},
-    {'id': '3', 'name': 'Midigama', 'region': 'South Coast', 'coords': [80.383, 5.961]},
-    {'id': '4', 'name': 'Hiriketiya', 'region': 'South Coast', 'coords': [80.686, 5.976]},
-    {'id': '5', 'name': 'Okanda', 'region': 'East Coast', 'coords': [81.657, 6.660]},
+    # South Coast - Best November to April
+    {'id': '1', 'name': 'Weligama', 'region': 'South Coast', 'coords': [80.4264, 5.9721]},
+    {'id': '2', 'name': 'Midigama', 'region': 'South Coast', 'coords': [80.3833, 5.9611]},
+    {'id': '3', 'name': 'Hiriketiya', 'region': 'South Coast', 'coords': [80.6863, 5.9758]},
+    {'id': '4', 'name': 'Unawatuna', 'region': 'South Coast', 'coords': [80.2505, 6.0093]},
+    {'id': '5', 'name': 'Hikkaduwa', 'region': 'South Coast', 'coords': [80.0998, 6.1376]},
+    {'id': '6', 'name': 'Madiha', 'region': 'South Coast', 'coords': [80.5833, 5.9833]},
+    {'id': '7', 'name': 'Mirissa', 'region': 'South Coast', 'coords': [80.4611, 5.9461]},
+    {'id': '8', 'name': 'Ahangama', 'region': 'South Coast', 'coords': [80.3667, 5.9667]},
+    {'id': '9', 'name': 'Kabalana', 'region': 'South Coast', 'coords': [80.1167, 6.1333]},
+    {'id': '10', 'name': 'Dewata', 'region': 'South Coast', 'coords': [80.2833, 5.9833]},
+    {'id': '11', 'name': 'Polhena', 'region': 'South Coast', 'coords': [80.3500, 5.9500]},
+    {'id': '12', 'name': 'Talalla', 'region': 'South Coast', 'coords': [80.5667, 5.9667]},
+    
+    # East Coast - Best April to October
+    {'id': '13', 'name': 'Arugam Bay', 'region': 'East Coast', 'coords': [81.8293, 6.8434]},
+    {'id': '14', 'name': 'Pottuvil Point', 'region': 'East Coast', 'coords': [81.8333, 6.8667]},
+    {'id': '15', 'name': 'Whiskey Point', 'region': 'East Coast', 'coords': [81.8250, 6.8333]},
+    {'id': '16', 'name': 'Peanut Farm', 'region': 'East Coast', 'coords': [81.8167, 6.8167]},
+    {'id': '17', 'name': 'Okanda', 'region': 'East Coast', 'coords': [81.6574, 6.6604]},
+    {'id': '18', 'name': 'Lighthouse Point', 'region': 'East Coast', 'coords': [81.8400, 6.8500]},
+    {'id': '19', 'name': 'Crocodile Rock', 'region': 'East Coast', 'coords': [81.8100, 6.8100]},
+    {'id': '20', 'name': 'Panama', 'region': 'East Coast', 'coords': [81.7833, 6.7667]},
+    {'id': '21', 'name': 'Kalmunai', 'region': 'East Coast', 'coords': [81.8222, 7.4089]},
+    {'id': '22', 'name': 'Pasikudah', 'region': 'East Coast', 'coords': [81.5581, 7.9286]},
+    
+    # West Coast - Variable conditions
+    {'id': '23', 'name': 'Mount Lavinia', 'region': 'West Coast', 'coords': [79.8633, 6.8400]},
+    {'id': '24', 'name': 'Wellawatte', 'region': 'West Coast', 'coords': [79.8589, 6.8667]},
+    {'id': '25', 'name': 'Negombo', 'region': 'West Coast', 'coords': [79.8358, 7.2083]},
+    {'id': '26', 'name': 'Bentota', 'region': 'West Coast', 'coords': [79.9958, 6.4258]},
+    {'id': '27', 'name': 'Kalutara', 'region': 'West Coast', 'coords': [79.9589, 6.5844]},
+    {'id': '28', 'name': 'Wadduwa', 'region': 'West Coast', 'coords': [79.9292, 6.6667]},
+    {'id': '29', 'name': 'Beruwala', 'region': 'West Coast', 'coords': [79.9831, 6.4786]},
+    
+    # North and North-West Coast
+    {'id': '30', 'name': 'Kalpitiya', 'region': 'North-West Coast', 'coords': [79.7667, 8.2333]},
+    {'id': '31', 'name': 'Mannar', 'region': 'North Coast', 'coords': [79.9042, 8.9811]},
 ]
 
 # --- Model Loading ---
@@ -149,16 +186,26 @@ def get_spots_with_predictions():
     """Get all surf spots with forecast predictions."""
     all_spots_data = []
     
-    for spot in SURF_SPOTS:
+    print(f"Processing {len(SURF_SPOTS)} surf spots...", file=sys.stderr)
+    
+    for i, spot in enumerate(SURF_SPOTS, 1):
         try:
-            features, is_valid = fetch_future_weather_features(spot['coords'])
-            
-            if SURF_PREDICTOR and is_valid and features:
-                forecast = run_ml_prediction(features)
-            else:
+            # Use mock data by default for performance (skip API calls)
+            if USE_MOCK_DATA:
                 forecast = generate_mock_forecast(spot)
+            else:
+                features, is_valid = fetch_future_weather_features(spot['coords'])
+                
+                if SURF_PREDICTOR and is_valid and features:
+                    forecast = run_ml_prediction(features)
+                else:
+                    forecast = generate_mock_forecast(spot)
             
             all_spots_data.append({**spot, 'forecast': forecast})
+            
+            if i % 10 == 0:
+                print(f"Processed {i}/{len(SURF_SPOTS)} spots", file=sys.stderr)
+                
         except Exception as e:
             print(f"Error processing spot {spot.get('name', 'unknown')}: {e}", file=sys.stderr)
             # Add spot with mock forecast even if there's an error
@@ -166,7 +213,8 @@ def get_spots_with_predictions():
                 **spot,
                 'forecast': generate_mock_forecast(spot)
             })
-        
+    
+    print(f"Successfully generated data for {len(all_spots_data)} spots", file=sys.stderr)
     return all_spots_data
 
 if __name__ == '__main__':

@@ -6,10 +6,11 @@ import { Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { UserContext } from '../context/UserContext';
 import { getSpotsData } from '../data/surfApi'; 
+import { filterSpotsByRadius } from '../data/locationUtils';
 import SpotCard from '../components/SpotCard';
 
 const HomeScreen = () => {
-  const { userPreferences } = useContext(UserContext);
+  const { userPreferences, userLocation, locationLoading } = useContext(UserContext);
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -19,8 +20,11 @@ const HomeScreen = () => {
     try {
       if (!isRefresh) setLoading(true);
       setError(null);
-      const data = await getSpotsData(userPreferences); 
-      setSpots(data);
+      const data = await getSpotsData(userPreferences, userLocation); 
+      
+      // Filter spots by 10km radius if user location is available
+      const filteredSpots = filterSpotsByRadius(data, userLocation, 10);
+      setSpots(filteredSpots);
     } catch (e) {
       console.error("Error fetching spots for home screen:", e);
       setError("Failed to load surf spots. Pull down to retry.");
@@ -36,8 +40,11 @@ const HomeScreen = () => {
   };
   
   useEffect(() => {
-    fetchSpots();
-  }, [userPreferences]); 
+    // Wait for location to be loaded before fetching spots
+    if (!locationLoading) {
+      fetchSpots();
+    }
+  }, [userPreferences, userLocation, locationLoading]); 
 
   const topPick = spots[0];
   const nextBestSpots = spots.slice(1, 4);
@@ -72,9 +79,15 @@ const HomeScreen = () => {
             <Text style={styles.headerTitle}>
               {userPreferences.skillLevel} Surfer
             </Text>
-            <Text style={styles.subtitle}>
-              We found {spots.length} spots matching your preferences
-            </Text>
+            {userLocation ? (
+              <Text style={styles.subtitle}>
+                📍 Showing {spots.length} spots within 10km of your location
+              </Text>
+            ) : (
+              <Text style={styles.subtitle}>
+                We found {spots.length} spots matching your preferences
+              </Text>
+            )}
           </View>
 
           {error ? (
@@ -85,9 +98,11 @@ const HomeScreen = () => {
           ) : !topPick ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🌊</Text>
-              <Text style={styles.emptyTitle}>No spots available</Text>
+              <Text style={styles.emptyTitle}>No spots nearby</Text>
               <Text style={styles.emptyText}>
-                Try adjusting your preferences to see more results
+                {userLocation 
+                  ? 'No surf spots found within 10km. Check the map to see all spots!' 
+                  : 'Try adjusting your preferences to see more results'}
               </Text>
             </View>
           ) : (
