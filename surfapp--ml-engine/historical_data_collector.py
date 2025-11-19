@@ -3,6 +3,7 @@ import requests
 import time
 import json
 import sys
+import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -88,7 +89,8 @@ def fetch_and_save_historical_data():
             time.sleep(2) 
 
         except requests.exceptions.RequestException as e:
-            print(f"  API Error (HTTP {e.response.status_code}) for {spot['name']}: {e}", file=sys.stderr)
+            status = getattr(getattr(e, 'response', None), 'status_code', 'N/A')
+            print(f"  API Error (HTTP {status}) for {spot['name']}: {e}", file=sys.stderr)
         
         except Exception as e:
             print(f"  General Error for {spot['name']}: {e}", file=sys.stderr)

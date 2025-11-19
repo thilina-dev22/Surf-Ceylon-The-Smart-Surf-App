@@ -39,8 +39,8 @@ def _get_average_from_sources(source_dict):
 
 def fetch_historical_data_for_training():
     """Fetches and processes historical data for both features and targets."""
-    if not STORMGLASS_API_KEY:
-        print("Error: STORMGLASS_API_KEY environment variable is not set.", file=sys.stderr)
+    if not STORMGLASS_API_KEY or STORMGLASS_API_KEY == 'your_api_key_here':
+        print("Error: STORMGLASS_API_KEY environment variable is not set or invalid.", file=sys.stderr)
         return None
 
     # Fetch the last 10 days of data for training.
@@ -93,11 +93,19 @@ def fetch_historical_data_for_training():
 
 def train_model(df):
     """Trains a multi-output Random Forest Regressor and saves it to a file."""
-    if df.empty:
+    if df is None or df.empty:
         print("Training cannot proceed with an empty DataFrame.", file=sys.stderr)
         return
 
-    print("Starting multi-output model training (Random Forest Regressor)...", file=sys.stderr)
+    # Validate that all required columns are present
+    missing_features = set(FEATURE_NAMES) - set(df.columns)
+    missing_targets = set(TARGET_NAMES) - set(df.columns)
+    
+    if missing_features or missing_targets:
+        print(f"Error: Missing columns. Features: {missing_features}, Targets: {missing_targets}", file=sys.stderr)
+        return
+
+    print(f"Starting multi-output model training with {len(df)} samples...", file=sys.stderr)
     
     # Define the features (X) and the multiple targets (y)
     X = df[FEATURE_NAMES]

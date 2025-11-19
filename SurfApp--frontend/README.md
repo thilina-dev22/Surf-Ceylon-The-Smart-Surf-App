@@ -48,3 +48,20 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Surf Ceylon specifics
+
+- Map: Set your Mapbox token via an environment variable before starting the app:
+
+   Windows PowerShell
+   ```powershell
+   $env:EXPO_PUBLIC_MAPBOX_TOKEN = "<your_mapbox_public_token>"; npx expo start
+   ```
+
+- Backend API: Make sure the backend is running on port 3000.
+   - From `surfapp--backend`:
+      ```powershell
+      npm install
+      npm run dev
+      ```
+   - The mobile app will call `http://10.0.2.2:3000` on Android emulators and `http://127.0.0.1:3000` elsewhere by default.

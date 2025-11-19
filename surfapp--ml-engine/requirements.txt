@@ -4,3 +4,4 @@ joblib
 requests
 arrow
 python-dotenv
+pymongo
