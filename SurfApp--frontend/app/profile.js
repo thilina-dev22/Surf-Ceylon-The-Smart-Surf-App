@@ -154,8 +154,19 @@ const ProfileScreen = () => {
 
   const handleSavePreferences = async () => {
     try {
-      await updateUserPreferences(tempPreferences);
-      setUserPreferences(tempPreferences);
+      const prefsToSave = {
+        ...tempPreferences,
+        minWaveHeight: parseFloat(tempPreferences.minWaveHeight),
+        maxWaveHeight: parseFloat(tempPreferences.maxWaveHeight)
+      };
+
+      if (isNaN(prefsToSave.minWaveHeight) || isNaN(prefsToSave.maxWaveHeight)) {
+        Alert.alert('Error', 'Please enter valid numbers for wave height');
+        return;
+      }
+
+      await updateUserPreferences(prefsToSave);
+      setUserPreferences(prefsToSave);
       setActiveModal(null);
       Alert.alert('Success', 'Preferences updated');
     } catch (error) {
@@ -477,7 +488,10 @@ const ProfileScreen = () => {
           transparent={true}
           onRequestClose={() => setActiveModal(null)}
         >
-          <View style={styles.modalContainer}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={styles.modalContainer}
+          >
             <View style={[styles.modalContent, { maxHeight: '80%' }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Edit Preferences</Text>
@@ -506,10 +520,9 @@ const ProfileScreen = () => {
                     <Text style={styles.rangeLabel}>Min</Text>
                     <TextInput
                       style={styles.input}
-                      value={String(tempPreferences.minWaveHeight || 0.5)}
+                      value={String(tempPreferences.minWaveHeight)}
                       onChangeText={text => {
-                        const val = parseFloat(text);
-                        setTempPreferences(prev => ({ ...prev, minWaveHeight: Number.isNaN(val) ? 0.5 : val }));
+                        setTempPreferences(prev => ({ ...prev, minWaveHeight: text }));
                       }}
                       keyboardType="decimal-pad"
                     />
@@ -519,10 +532,9 @@ const ProfileScreen = () => {
                     <Text style={styles.rangeLabel}>Max</Text>
                     <TextInput
                       style={styles.input}
-                      value={String(tempPreferences.maxWaveHeight || 2.0)}
+                      value={String(tempPreferences.maxWaveHeight)}
                       onChangeText={text => {
-                        const val = parseFloat(text);
-                        setTempPreferences(prev => ({ ...prev, maxWaveHeight: Number.isNaN(val) ? 2.0 : val }));
+                        setTempPreferences(prev => ({ ...prev, maxWaveHeight: text }));
                       }}
                       keyboardType="decimal-pad"
                     />
@@ -560,7 +572,7 @@ const ProfileScreen = () => {
                 <Text style={styles.saveButtonText}>Save Preferences</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* All Sessions Modal */}
