@@ -1,14 +1,13 @@
 import { UserContext } from '../../context/UserContext';
 import { getSpotsData } from '../../data/surfApi'; 
 import SpotCard from '../../components/SpotCard';
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { FlatList, StyleSheet, ActivityIndicator, View, Text, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const SpotsListScreen = () => {
-  const { userPreferences, userLocation } = useContext(UserContext);
+  const { userPreferences, userLocation, user } = useContext(UserContext);
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -16,15 +15,13 @@ const SpotsListScreen = () => {
 
   useEffect(() => {
     fetchSpots();
-  }, [userPreferences, userLocation]);
+  }, [fetchSpots]);
 
-  const fetchSpots = async () => {
+  const fetchSpots = useCallback(async () => {
     try {
       setLoading(true);
       // Get all spots with distance info - no filtering by location on this screen
       const data = await getSpotsData(userPreferences, userLocation);
-      console.log('User location:', userLocation);
-      console.log('Sample spot data:', data[0]?.name, 'distance:', data[0]?.distance);
       setSpots(data);
     } catch (e) {
       console.error("Error fetching spots for list screen:", e);
@@ -32,7 +29,7 @@ const SpotsListScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [userPreferences, userLocation]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -41,9 +38,9 @@ const SpotsListScreen = () => {
 
   const getFilteredSpots = () => {
     if (filter === 'all') return spots;
-    if (filter === 'excellent') return spots.filter(s => s.suitability >= 75);
-    if (filter === 'good') return spots.filter(s => s.suitability >= 50 && s.suitability < 75);
-    if (filter === 'fair') return spots.filter(s => s.suitability < 50);
+    if (filter === 'excellent') return spots.filter(s => s.score >= 75);
+    if (filter === 'good') return spots.filter(s => s.score >= 50 && s.score < 75);
+    if (filter === 'fair') return spots.filter(s => s.score < 50);
     return spots;
   };
 
@@ -85,6 +82,15 @@ const SpotsListScreen = () => {
       style={styles.gradient}
     >
       <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Guest Banner */}
+        {!user && (
+          <View style={styles.guestBanner}>
+            <Text style={styles.guestBannerText}>
+              Showing suitability for Beginner level (Default)
+            </Text>
+          </View>
+        )}
+
         {/* Filter Section */}
         <View style={styles.filterContainer}>
           <ScrollView 
@@ -100,17 +106,17 @@ const SpotsListScreen = () => {
             <FilterButton 
               label="Excellent" 
               value="excellent" 
-              count={spots.filter(s => s.suitability >= 75).length} 
+              count={spots.filter(s => s.score >= 75).length} 
             />
             <FilterButton 
               label="Good" 
               value="good" 
-              count={spots.filter(s => s.suitability >= 50 && s.suitability < 75).length} 
+              count={spots.filter(s => s.score >= 50 && s.score < 75).length} 
             />
             <FilterButton 
               label="Fair" 
               value="fair" 
-              count={spots.filter(s => s.suitability < 50).length} 
+              count={spots.filter(s => s.score < 50).length} 
             />
           </ScrollView>
         </View>
@@ -126,9 +132,7 @@ const SpotsListScreen = () => {
             data={filteredSpots}
             keyExtractor={item => item.id}
             renderItem={({ item }) => (
-              <Link href={{ pathname: "/(spots)/detail", params: { spot: JSON.stringify(item) } }} asChild>
-                <SpotCard spot={item} />
-              </Link>
+              <SpotCard spot={item} origin="spots" />
             )}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -227,6 +231,18 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     color: '#64748b',
+  },
+  guestBanner: {
+    backgroundColor: '#f0f9ff',
+    padding: 8,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0f2fe',
+  },
+  guestBannerText: {
+    color: '#0369a1',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 

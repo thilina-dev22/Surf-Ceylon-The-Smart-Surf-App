@@ -1,19 +1,25 @@
 // SurfApp--frontend/app/map.js
 
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, Pressable } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text, Pressable, LogBox, Share, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Mapbox from '@rnmapbox/maps';
 import { UserContext } from '../context/UserContext';
 import { getSpotsData } from '../data/surfApi';
 
+// Suppress known Mapbox warnings related to NativeEventEmitter
+LogBox.ignoreLogs([
+  '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method',
+  '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method',
+]);
+
 // Set Mapbox access token
 const MAPBOX_ACCESS_TOKEN = 'sk.eyJ1IjoiaXQyMjAwMzg1MCIsImEiOiJjbWk1bmxod2wwNmYwMnFzNnkwZmdpd3NvIn0.4JG304IZL8mDcZ24QcYOng';
 Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 const MapScreen = () => {
-  const { userPreferences, userLocation } = useContext(UserContext);
+  const { userPreferences, userLocation, user } = useContext(UserContext);
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,7 +33,39 @@ const MapScreen = () => {
         setError(null);
         // Get all spots without filtering by location - map shows all spots
         const data = await getSpotsData(userPreferences, userLocation);
-        setSpots(data);
+        
+        // Filter out any spots with invalid coordinates OR invalid scores
+        const validSpots = data.filter(spot => {
+          // Check coords structure
+          if (!spot.coords || !Array.isArray(spot.coords) || spot.coords.length !== 2) {
+            console.warn(`Spot ${spot.name} has invalid coords structure:`, spot.coords);
+            return false;
+          }
+          
+          // Check coords values
+          const lon = parseFloat(spot.coords[0]);
+          const lat = parseFloat(spot.coords[1]);
+          if (isNaN(lon) || isNaN(lat) || !isFinite(lon) || !isFinite(lat)) {
+            console.warn(`Spot ${spot.name} has invalid coordinates: [${spot.coords[0]}, ${spot.coords[1]}]`);
+            return false;
+          }
+          
+          // Check score value
+          const score = parseFloat(spot.score);
+          if (isNaN(score) || !isFinite(score)) {
+            console.warn(`Spot ${spot.name} has invalid score: ${spot.score}`);
+            return false;
+          }
+          
+          return true;
+        }).map(spot => ({
+          ...spot,
+          score: parseFloat(spot.score) || 0, // Ensure score is a valid number
+          coords: [parseFloat(spot.coords[0]), parseFloat(spot.coords[1])] // Ensure coords are numbers
+        }));
+        
+        console.log(`✅ Loaded ${validSpots.length} valid spots out of ${data.length} total`);
+        setSpots(validSpots);
       } catch (error) {
         console.error("Error fetching spots for map:", error);
         setError('Failed to load spot data.');
@@ -45,23 +83,54 @@ const MapScreen = () => {
     return '#ef4444';
   };
 
-  const getSuitabilityLabel = (suitability) => {
-    if (suitability > 75) return 'Excellent';
-    if (suitability > 50) return 'Good';
-    if (suitability > 25) return 'Fair';
-    return 'Poor';
-  };
-
   const handleMarkerPress = (spot) => {
     setSelectedSpot(spot);
     // Animate camera to selected spot
-    if (cameraRef.current) {
-      cameraRef.current.setCamera({
-        centerCoordinate: spot.coords,
-        zoomLevel: 12,
-        animationDuration: 1000,
-      });
+    if (cameraRef.current && spot.coords && spot.coords.length === 2) {
+      const lon = parseFloat(spot.coords[0]);
+      const lat = parseFloat(spot.coords[1]);
+      if (!isNaN(lon) && !isNaN(lat) && isFinite(lon) && isFinite(lat)) {
+        cameraRef.current.setCamera({
+          centerCoordinate: [lon, lat],
+          zoomLevel: 12,
+          animationDuration: 1000,
+        });
+      }
     }
+  };
+
+  const handleShare = async () => {
+    if (!selectedSpot) return;
+    try {
+      const result = await Share.share({
+        message: `Check out this surf spot: ${selectedSpot.name} in ${selectedSpot.region}! 🏄‍♂️`,
+        url: `https://www.google.com/maps/search/?api=1&query=${selectedSpot.coords[1]},${selectedSpot.coords[0]}`,
+        title: `Surf Spot: ${selectedSpot.name}`
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const handleDirections = () => {
+    if (!selectedSpot) return;
+    const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
+    const latLng = `${selectedSpot.coords[1]},${selectedSpot.coords[0]}`;
+    const label = selectedSpot.name;
+    const url = Platform.select({
+      ios: `${scheme}${label}@${latLng}`,
+      android: `${scheme}${latLng}(${label})`
+    });
+    
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selectedSpot.coords[1]},${selectedSpot.coords[0]}`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        return Linking.openURL(url);
+      } else {
+        return Linking.openURL(googleMapsUrl);
+      }
+    });
   };
 
   const handleCloseInfo = () => {
@@ -70,11 +139,15 @@ const MapScreen = () => {
 
   const handleMyLocation = () => {
     if (userLocation && cameraRef.current) {
-      cameraRef.current.setCamera({
-        centerCoordinate: [userLocation.longitude, userLocation.latitude],
-        zoomLevel: 11,
-        animationDuration: 1000,
-      });
+      const lon = parseFloat(userLocation.longitude);
+      const lat = parseFloat(userLocation.latitude);
+      if (!isNaN(lon) && !isNaN(lat) && isFinite(lon) && isFinite(lat)) {
+        cameraRef.current.setCamera({
+          centerCoordinate: [lon, lat],
+          zoomLevel: 11,
+          animationDuration: 1000,
+        });
+      }
     }
   };
 
@@ -101,6 +174,13 @@ const MapScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {!user && (
+        <View style={styles.guestBanner}>
+          <Text style={styles.guestBannerText}>
+            Showing suitability for Beginner level (Default)
+          </Text>
+        </View>
+      )}
       <Mapbox.MapView 
         style={styles.map}
         styleURL="mapbox://styles/mapbox/outdoors-v12"
@@ -113,10 +193,14 @@ const MapScreen = () => {
         />
         
         {/* User location marker */}
-        {userLocation && (
+        {userLocation && 
+         !isNaN(parseFloat(userLocation.longitude)) && 
+         !isNaN(parseFloat(userLocation.latitude)) && 
+         isFinite(parseFloat(userLocation.longitude)) && 
+         isFinite(parseFloat(userLocation.latitude)) && (
           <Mapbox.PointAnnotation
             id="user-location"
-            coordinate={[userLocation.longitude, userLocation.latitude]}
+            coordinate={[parseFloat(userLocation.longitude), parseFloat(userLocation.latitude)]}
           >
             <View style={styles.userLocationMarker}>
               <View style={styles.userLocationDot} />
@@ -126,11 +210,18 @@ const MapScreen = () => {
 
         {/* Surf spot markers */}
         {spots.map(spot => {
+          // Double-check coords are valid numbers (defense in depth)
           const lon = parseFloat(spot.coords[0]);
           const lat = parseFloat(spot.coords[1]);
+          const score = parseFloat(spot.score);
 
-          if (isNaN(lon) || isNaN(lat)) {
-            console.warn(`Invalid coordinates for spot: ${spot.name}`);
+          if (isNaN(lon) || isNaN(lat) || !isFinite(lon) || !isFinite(lat)) {
+            console.warn(`Skipping render for ${spot.name}: invalid coords [${lon}, ${lat}]`);
+            return null;
+          }
+          
+          if (isNaN(score) || !isFinite(score)) {
+            console.warn(`Skipping render for ${spot.name}: invalid score ${score}`);
             return null;
           }
           
@@ -143,10 +234,10 @@ const MapScreen = () => {
             >
               <View style={[
                 styles.markerContainer, 
-                { backgroundColor: getMarkerColor(spot.suitability) },
+                { backgroundColor: getMarkerColor(score) },
                 selectedSpot?.id === spot.id && styles.markerSelected
               ]}>
-                <Text style={styles.markerText}>{spot.suitability.toFixed(0)}</Text>
+                <Text style={styles.markerText}>{Math.round(score)}</Text>
               </View>
             </Mapbox.PointAnnotation>
           );
@@ -182,11 +273,11 @@ const MapScreen = () => {
 
           <View style={styles.infoRow}>
             <LinearGradient
-              colors={[getMarkerColor(selectedSpot.suitability), getMarkerColor(selectedSpot.suitability)]}
+              colors={[getMarkerColor(selectedSpot.score), getMarkerColor(selectedSpot.score)]}
               style={styles.suitabilityBadge}
             >
-              <Text style={styles.suitabilityLabel}>{getSuitabilityLabel(selectedSpot.suitability)}</Text>
-              <Text style={styles.suitabilityScore}>{selectedSpot.suitability.toFixed(0)}%</Text>
+              <Text style={styles.suitabilityLabel}>{selectedSpot.suitability}</Text>
+              <Text style={styles.suitabilityScore}>{selectedSpot.score}%</Text>
             </LinearGradient>
           </View>
 
@@ -206,6 +297,17 @@ const MapScreen = () => {
               <Text style={styles.forecastValue}>{selectedSpot.forecast?.tide?.status}</Text>
               <Text style={styles.forecastLabel}>Tide</Text>
             </View>
+          </View>
+
+          <View style={styles.actionButtons}>
+            <Pressable style={styles.actionButton} onPress={handleShare}>
+              <Text style={styles.actionButtonIcon}>📤</Text>
+              <Text style={styles.actionButtonText}>Share</Text>
+            </Pressable>
+            <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={handleDirections}>
+              <Text style={styles.actionButtonIcon}>🗺️</Text>
+              <Text style={[styles.actionButtonText, styles.primaryButtonText]}>Directions</Text>
+            </Pressable>
           </View>
         </View>
       )}
@@ -443,6 +545,49 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontWeight: '500',
     textTransform: 'uppercase',
+  },
+  guestBanner: {
+    backgroundColor: '#f0f9ff',
+    padding: 8,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0f2fe',
+    zIndex: 10,
+  },
+  guestBannerText: {
+    color: '#0369a1',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  primaryButton: {
+    backgroundColor: '#0ea5e9',
+  },
+  actionButtonIcon: {
+    fontSize: 16,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  primaryButtonText: {
+    color: 'white',
   },
 });
 

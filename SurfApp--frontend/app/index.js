@@ -2,15 +2,16 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Text, StyleSheet, ActivityIndicator, View, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
-import { Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { UserContext } from '../context/UserContext';
 import { getSpotsData } from '../data/surfApi'; 
 import { filterSpotsByRadius } from '../data/locationUtils';
 import SpotCard from '../components/SpotCard';
 
 const HomeScreen = () => {
-  const { userPreferences, userLocation, locationLoading } = useContext(UserContext);
+  const { userPreferences, userLocation, locationLoading, user } = useContext(UserContext);
+  const router = useRouter();
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -20,6 +21,7 @@ const HomeScreen = () => {
     try {
       if (!isRefresh) setLoading(true);
       setError(null);
+      // If no user, we use default preferences (Beginner) which are already in userPreferences
       const data = await getSpotsData(userPreferences, userLocation); 
       
       // Filter spots by 10km radius if user location is available
@@ -75,17 +77,31 @@ const HomeScreen = () => {
         >
           {/* Header */}
           <View style={styles.headerSection}>
-            <Text style={styles.greeting}>Welcome back! 🏄‍♂️</Text>
-            <Text style={styles.headerTitle}>
-              {userPreferences.skillLevel} Surfer
+            <Text style={styles.greeting}>
+              {user ? `Welcome back, ${user.name.split(' ')[0]}! 🏄‍♂️` : 'Welcome to Surf Ceylon! 🏄‍♂️'}
             </Text>
+            <Text style={styles.headerTitle}>
+              {user ? `${userPreferences.skillLevel} Surfer` : 'Find Your Wave'}
+            </Text>
+            
+            {!user && (
+              <Pressable 
+                style={styles.loginBanner}
+                onPress={() => router.push('/login')}
+              >
+                <Text style={styles.loginBannerText}>
+                  ✨ Log in for personalized recommendations
+                </Text>
+              </Pressable>
+            )}
+
             {userLocation ? (
               <Text style={styles.subtitle}>
                 📍 Showing {spots.length} spots within 10km of your location
               </Text>
             ) : (
               <Text style={styles.subtitle}>
-                We found {spots.length} spots matching your preferences
+                We found {spots.length} spots matching {user ? 'your preferences' : 'default settings'}
               </Text>
             )}
           </View>
@@ -115,12 +131,7 @@ const HomeScreen = () => {
                     <Text style={styles.badgeText}>BEST MATCH</Text>
                   </View>
                 </View>
-                <Link 
-                  href={{ pathname: "/(spots)/detail", params: { spot: JSON.stringify(topPick) } }} 
-                  asChild
-                >
-                  <SpotCard spot={topPick} />
-                </Link>
+                <SpotCard spot={topPick} origin="home" />
               </View>
 
               {/* Other Good Spots */}
@@ -128,31 +139,26 @@ const HomeScreen = () => {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>✨ Also Worth Checking</Text>
                   {nextBestSpots.map((spot) => (
-                    <Link 
-                      key={spot.id}
-                      href={{ pathname: "/(spots)/detail", params: { spot: JSON.stringify(spot) } }} 
-                      asChild
-                    >
-                      <SpotCard spot={spot} />
-                    </Link>
+                    <SpotCard key={spot.id} spot={spot} origin="home" />
                   ))}
                 </View>
               )}
 
               {/* View All Button */}
-              <Link href="/(spots)" asChild>
-                <Pressable style={styles.viewAllButton}>
-                  <LinearGradient
-                    colors={['#0ea5e9', '#06b6d4']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.viewAllGradient}
-                  >
-                    <Text style={styles.viewAllText}>View All {spots.length} Spots</Text>
-                    <Text style={styles.viewAllArrow}>→</Text>
-                  </LinearGradient>
-                </Pressable>
-              </Link>
+              <Pressable 
+                style={styles.viewAllButton}
+                onPress={() => router.push('/(spots)')}
+              >
+                <LinearGradient
+                  colors={['#0ea5e9', '#06b6d4']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.viewAllGradient}
+                >
+                  <Text style={styles.viewAllText}>View All {spots.length} Spots</Text>
+                  <Text style={styles.viewAllArrow}>→</Text>
+                </LinearGradient>
+              </Pressable>
             </>
           )}
         </ScrollView>
@@ -286,6 +292,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     color: '#64748b',
+    textAlign: 'center',
+  },
+  loginBanner: {
+    backgroundColor: '#e0f2fe',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  loginBannerText: {
+    color: '#0284c7',
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

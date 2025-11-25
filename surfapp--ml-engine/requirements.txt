@@ -5,3 +5,7 @@ requests
 arrow
 python-dotenv
 pymongo
+matplotlib
+seaborn
+scipy
+numpy

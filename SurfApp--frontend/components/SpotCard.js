@@ -1,40 +1,48 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useUser } from '../context/UserContext';
 
-const SpotCard = ({ spot, onPress, testID }) => {
+const SpotCard = ({ spot, testID, origin }) => {
+  const router = useRouter();
+  const { setSelectedSpot } = useUser();
+  
   const waveHeight = spot?.forecast?.waveHeight ?? '?';
   const wavePeriod = spot?.forecast?.wavePeriod ?? '?';
   const windSpeed = spot?.forecast?.windSpeed ?? '?';
   const windDirection = spot?.forecast?.windDirection ?? '?';
   const tideStatus = spot?.forecast?.tide?.status ?? '-';
-  const suitability = typeof spot?.suitability === 'number' ? spot.suitability.toFixed(0) : '-';
   
+  // Use spot.score (number) for calculations, spot.suitability (string) for label
+  const score = typeof spot?.score === 'number' && !isNaN(spot.score) ? spot.score : 0;
+  const suitabilityLabel = spot?.suitability || 'Unknown';
+  
+  // Enhanced breakdown data (Phase 1)
+  const breakdown = spot?.breakdown || {};
+  const hasWarnings = spot?.warnings && spot?.warnings.length > 0;
+  const canSurf = spot?.canSurf !== undefined ? spot.canSurf : true;
+  
+  const handlePress = () => {
+    setSelectedSpot(spot);
+    router.push({ pathname: '/(spots)/detail', params: { origin } });
+  };
   // Debug logging
   if (spot?.name === 'Midigama') {
     console.log('Midigama card - distance:', spot.distance, 'type:', typeof spot.distance);
   }
 
-  // Determine color based on suitability
+  // Determine color based on score
   const getGradientColors = () => {
-    const score = parseFloat(suitability);
     if (score >= 75) return ['#4ade80', '#22c55e']; // Green
     if (score >= 50) return ['#fbbf24', '#f59e0b']; // Yellow/Orange
     if (score >= 25) return ['#fb923c', '#f97316']; // Orange
     return ['#f87171', '#ef4444']; // Red
   };
 
-  const getSuitabilityLabel = () => {
-    const score = parseFloat(suitability);
-    if (score >= 75) return 'Excellent';
-    if (score >= 50) return 'Good';
-    if (score >= 25) return 'Fair';
-    return 'Poor';
-  };
-
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
         pressed && styles.cardPressed
@@ -62,10 +70,19 @@ const SpotCard = ({ spot, onPress, testID }) => {
             end={{ x: 1, y: 1 }}
             style={styles.scoreContainer}
           >
-            <Text style={styles.scoreLabel}>{getSuitabilityLabel()}</Text>
-            <Text style={styles.score}>{suitability}%</Text>
+            <Text style={styles.scoreLabel}>{suitabilityLabel}</Text>
+            <Text style={styles.score}>{Math.round(score)}%</Text>
+            {!canSurf && <Text style={styles.warningBadge}>⚠️</Text>}
           </LinearGradient>
         </View>
+
+        {/* Warning Banner */}
+        {hasWarnings && (
+          <View style={styles.warningBanner}>
+            <Text style={styles.warningIcon}>⚠️</Text>
+            <Text style={styles.warningText}>Safety warnings - tap for details</Text>
+          </View>
+        )}
 
         {/* Forecast Details Grid */}
         <View style={styles.detailsGrid}>
@@ -156,10 +173,11 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   scoreContainer: { 
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     minWidth: 90,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -168,17 +186,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   scoreLabel: { 
-    fontSize: 11, 
+    fontSize: 10, 
     color: 'white',
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginBottom: 2,
   },
   score: { 
-    fontSize: 24, 
+    fontSize: 22, 
     fontWeight: 'bold', 
     color: 'white',
-    marginTop: 2,
+    lineHeight: 26,
   },
   detailsGrid: {
     flexDirection: 'row',
@@ -206,6 +225,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '600',
+    marginTop: 2,
+  },
+  warningBanner: {
+    backgroundColor: '#fef2f2',
+    borderLeftWidth: 3,
+    borderLeftColor: '#ef4444',
+    padding: 12,
+    marginTop: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  warningIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#991b1b',
+    fontWeight: '600',
+  },
+  warningBadge: {
+    fontSize: 12,
     marginTop: 2,
   },
 });

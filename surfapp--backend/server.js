@@ -1,14 +1,63 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
 const { spawn } = require('child_process');
 const path = require('path');
+const moment = require('moment');
+const EnhancedSuitabilityCalculator = require('./EnhancedSuitabilityCalculator');
+const sessionRoutes = require('./routes/sessions');
+const personalizationRoutes = require('./routes/personalization');
+const authRoutes = require('./routes/auth');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// MongoDB Connection (optional - app works without it)
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/';
+let isMongoConnected = false;
+
+mongoose.connect(MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds instead of default 30
+})
+.then(() => {
+  console.log('✅ MongoDB connected - Session tracking enabled');
+  isMongoConnected = true;
+})
+.catch((err) => {
+  console.warn('⚠️  MongoDB connection failed - Session tracking disabled');
+  console.warn('   App will still work for spot viewing and forecasts');
+  console.warn('   To enable session tracking, ensure MongoDB is running');
+  console.warn('   Error:', err.message);
+  isMongoConnected = false;
+});
+
+// Make connection status available to routes
+app.use((req, res, next) => {
+  req.isMongoConnected = isMongoConnected;
+  next();
+});
+
+// Initialize Enhanced Suitability Calculator
+const suitabilityCalculator = new EnhancedSuitabilityCalculator();
+
 // --- CONFIGURATION ---
-const PYTHON_EXECUTABLE = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'venv', 'Scripts', 'python.exe'); 
+const getPythonExecutable = () => {
+    if (process.env.PYTHON_PATH) {
+        return process.env.PYTHON_PATH;
+    }
+    
+    const isWin = process.platform === "win32";
+    const venvPath = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'venv');
+    
+    if (isWin) {
+        return path.join(venvPath, 'Scripts', 'python.exe');
+    } else {
+        return path.join(venvPath, 'bin', 'python');
+    }
+};
+
+const PYTHON_EXECUTABLE = getPythonExecutable();
 const ML_SCRIPT_PATH = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'predict_service.py');
 
 // --- 🎯 OPTIMIZED CACHE FOR BETTER PERFORMANCE ---
@@ -17,6 +66,20 @@ const cache = {
     timestamp: null,
     // Cache data for 5 minutes to reduce ML engine load and improve performance
     CACHE_DURATION_MS: 5 * 60 * 1000, 
+};
+
+// Complete spot data with additional metadata for enhanced scoring
+const SPOT_METADATA = {
+    'Arugam Bay': { bottomType: 'Sand', accessibility: 'Medium', region: 'East Coast' },
+    'Weligama': { bottomType: 'Sand', accessibility: 'High', region: 'South Coast' },
+    'Hikkaduwa': { bottomType: 'Reef', accessibility: 'High', region: 'South Coast' },
+    'Midigama': { bottomType: 'Reef', accessibility: 'Medium', region: 'South Coast' },
+    'Hiriketiya': { bottomType: 'Sand', accessibility: 'Medium', region: 'South Coast' },
+    'Okanda': { bottomType: 'Reef', accessibility: 'Low', region: 'East Coast' },
+    'Pottuvil Point': { bottomType: 'Reef', accessibility: 'Low', region: 'East Coast' },
+    'Whiskey Point': { bottomType: 'Reef', accessibility: 'Low', region: 'East Coast' },
+    'Lazy Left': { bottomType: 'Reef', accessibility: 'Medium', region: 'East Coast' },
+    'Lazy Right': { bottomType: 'Reef', accessibility: 'Medium', region: 'East Coast' }
 };
 
 // --- MODEL 2: SUITABILITY CALCULATION (UNCHANGED) ---
@@ -65,6 +128,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Mount session routes
+app.use('/api/auth', authRoutes);
+app.use('/api/sessions', sessionRoutes);
+
+// Mount personalization routes
+app.use('/api/personalization', personalizationRoutes);
+
 // Request logging middleware
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -72,12 +142,19 @@ app.use((req, res, next) => {
 });
 
 app.get('/api/spots', (req, res) => {
-    const userPreferences = req.query;
+    // Parse user preferences from query parameters
+    const userPreferences = {
+        skillLevel: req.query.skillLevel || 'Intermediate',
+        preferredWaveHeight: parseFloat(req.query.preferredWaveHeight) || 1.5,
+        preferredWindSpeed: parseFloat(req.query.preferredWindSpeed) || 15,
+        preferredRegion: req.query.preferredRegion || null,
+        minWaveHeight: parseFloat(req.query.minWaveHeight) || 0.5,
+        maxWaveHeight: parseFloat(req.query.maxWaveHeight) || 2.5,
+        boardType: req.query.boardType || 'Soft-top',
+        tidePreference: req.query.tidePreference || 'Any'
+    };
 
-    // Validate user preferences
-    if (!userPreferences || Object.keys(userPreferences).length === 0) {
-        console.warn('No user preferences provided, using defaults');
-    }
+    console.log('User preferences:', userPreferences);
 
     // --- CACHE LOGIC ---
     const now = Date.now();
@@ -85,12 +162,39 @@ app.get('/api/spots', (req, res) => {
         console.log("Serving request from cache.");
         try {
             const spotsWithPredictions = cache.data;
-            const finalRankedSpots = spotsWithPredictions.map(spot => ({
-                ...spot,
-                suitability: calculateSuitability(spot.forecast, userPreferences, spot.region),
-            }));
-            finalRankedSpots.sort((a, b) => b.suitability - a.suitability);
-            return res.json({ spots: finalRankedSpots });
+            
+            // Use Enhanced Suitability Calculator
+            const enhancedSpots = spotsWithPredictions.map(spot => {
+                // Merge spot metadata
+                const spotWithMeta = {
+                    ...spot,
+                    ...SPOT_METADATA[spot.name]
+                };
+                
+                // Calculate enhanced suitability
+                const enhancedResult = suitabilityCalculator.calculateEnhancedSuitability(
+                    spotWithMeta,
+                    spot.forecast,
+                    userPreferences,
+                    moment()
+                );
+                
+                return {
+                    ...spot,
+                    suitability: enhancedResult.suitability,
+                    score: enhancedResult.score,
+                    breakdown: enhancedResult.breakdown,
+                    recommendations: enhancedResult.recommendations,
+                    weights: enhancedResult.weights,
+                    warnings: enhancedResult.warnings || [],
+                    canSurf: enhancedResult.canSurf !== undefined ? enhancedResult.canSurf : true
+                };
+            });
+            
+            // Sort by score
+            enhancedSpots.sort((a, b) => b.score - a.score);
+            
+            return res.json({ spots: enhancedSpots });
         } catch (error) {
             console.error('Error processing cached data:', error);
             // Fall through to fetch new data
@@ -135,6 +239,10 @@ app.get('/api/spots', (req, res) => {
         if (hasResponded) return; // Already sent response due to timeout
         hasResponded = true;
 
+        console.log(`Python process exited with code: ${code}`);
+        console.log(`Python stdout length: ${pythonOutput.length}`);
+        console.log(`Python stderr: ${pythonError}`);
+
         if (code !== 0) {
             console.error(`Python script failed. Code: ${code}. Error: ${pythonError}`);
             return res.status(500).json({ 
@@ -161,13 +269,60 @@ app.get('/api/spots', (req, res) => {
             cache.timestamp = Date.now();
             console.log(`Updated cache with ${spotsWithPredictions.length} spots.`);
 
-            const finalRankedSpots = spotsWithPredictions.map(spot => ({
-                ...spot,
-                suitability: calculateSuitability(spot.forecast, userPreferences, spot.region),
-            }));
+            // Use Enhanced Suitability Calculator for new data
+            const enhancedSpots = spotsWithPredictions.map(spot => {
+                // Merge spot metadata
+                const spotWithMeta = {
+                    ...spot,
+                    ...SPOT_METADATA[spot.name]
+                };
+                
+                // Calculate enhanced suitability
+                const enhancedResult = suitabilityCalculator.calculateEnhancedSuitability(
+                    spotWithMeta,
+                    spot.forecast,
+                    userPreferences,
+                    moment()
+                );
+                
+                return {
+                    ...spot,
+                    suitability: enhancedResult.suitability,
+                    score: enhancedResult.score,
+                    breakdown: enhancedResult.breakdown,
+                    recommendations: enhancedResult.recommendations,
+                    weights: enhancedResult.weights,
+                    warnings: enhancedResult.warnings || [],
+                    canSurf: enhancedResult.canSurf !== undefined ? enhancedResult.canSurf : true
+                };
+            });
             
-            finalRankedSpots.sort((a, b) => b.suitability - a.suitability);
-            res.json({ spots: finalRankedSpots });
+            // Sanitize all numeric values to prevent NaN in JSON response
+            const sanitizeNumber = (value) => {
+                if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+                    return 0;
+                }
+                return value;
+            };
+            
+            const sanitizeObject = (obj) => {
+                if (obj === null || obj === undefined) return obj;
+                if (typeof obj !== 'object') return sanitizeNumber(obj);
+                if (Array.isArray(obj)) return obj.map(sanitizeObject);
+                
+                const sanitized = {};
+                for (const key in obj) {
+                    sanitized[key] = sanitizeObject(obj[key]);
+                }
+                return sanitized;
+            };
+            
+            const sanitizedSpots = enhancedSpots.map(sanitizeObject);
+            
+            // Sort by score
+            sanitizedSpots.sort((a, b) => b.score - a.score);
+            
+            res.json({ spots: sanitizedSpots });
             
         } catch (error) {
             console.error('Error processing Python output or scoring:', error);
