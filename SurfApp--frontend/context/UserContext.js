@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HOST = Platform.select({ 
   android: '10.0.2.2',
-  default: '127.0.0.1' 
+  default: '172.20.10.5' 
 });
 const API_URL = `http://${HOST}:3000/api`;
 

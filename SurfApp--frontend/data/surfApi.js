@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // For physical device: use your computer's IP on the network (e.g., 192.168.1.x)
 const HOST = Platform.select({ 
   android: '10.0.2.2',  // Android emulator special IP for host localhost
-  default: '127.0.0.1' 
+  default: '172.20.10.5' 
 });
 const API_BASE_URL = `http://${HOST}:3000/api`;
 const REQUEST_TIMEOUT = 30000; // 30 seconds (increased for 31 spots)
