@@ -14,3 +14,6 @@ __pycache__/
 # Environment
 .env
 .env.local
+
+arugam_bay_historical_data_fixed.json
+weligama_historical_data_fixed.json
