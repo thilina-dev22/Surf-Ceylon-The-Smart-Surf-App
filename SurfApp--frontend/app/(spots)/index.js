@@ -81,7 +81,7 @@ const SpotsListScreen = () => {
       colors={['#f0f9ff', '#e0f2fe', '#ffffff']}
       style={styles.gradient}
     >
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
         {/* Guest Banner */}
         {!user && (
           <View style={styles.guestBanner}>
