@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, Pressable, Share, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { UserContext } from '../context/UserContext';
 import { getSpotsData } from '../data/surfApi';
 
@@ -136,7 +136,7 @@ const MapScreen = () => {
         ref={mapRef}
         style={styles.map}
         // Use Google Maps on Android, Apple Maps on iOS
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+        provider={PROVIDER_DEFAULT}
         showsUserLocation={true}
         showsMyLocationButton={false}
         initialRegion={{

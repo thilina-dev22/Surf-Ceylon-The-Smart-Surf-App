@@ -165,4 +165,68 @@ router.put('/preferences', async (req, res) => {
   }
 });
 
+// Update Profile (Name/Email)
+router.put('/profile', async (req, res) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'No token, authorization denied' });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { name, email } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      decoded.userId,
+      { $set: { name, email } },
+      { new: true }
+    ).select('-password');
+
+    res.json(user);
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Change Password
+router.put('/password', async (req, res) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'No token, authorization denied' });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(decoded.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Invalid current password' });
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete Account
+router.delete('/account', async (req, res) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'No token, authorization denied' });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    await User.findByIdAndDelete(decoded.userId);
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

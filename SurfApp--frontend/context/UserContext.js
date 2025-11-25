@@ -91,6 +91,71 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (name, email) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name, email }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Update failed');
+      
+      await AsyncStorage.setItem('userData', JSON.stringify(data));
+      setUser(data);
+      return true;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/password`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Password change failed');
+      return true;
+    } catch (error) {
+      console.error('Change password error:', error);
+      throw error;
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      const response = await fetch(`${API_URL}/auth/account`, {
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Delete account failed');
+      }
+      
+      await logout();
+      return true;
+    } catch (error) {
+      console.error('Delete account error:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userData');
@@ -243,6 +308,9 @@ export const UserProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateProfile,
+    changePassword,
+    deleteAccount,
     userPreferences, 
     setUserPreferences,
     updateUserPreferences,
