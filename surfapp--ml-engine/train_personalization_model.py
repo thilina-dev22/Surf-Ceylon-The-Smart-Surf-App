@@ -260,62 +260,46 @@ class PersonalizationModelTrainer:
 def load_sessions_from_mongodb():
     """
     Load session data from MongoDB
-    
-    NOTE: This is a placeholder - in production, you would connect to MongoDB
-    For now, we'll use simulated data
     """
     print("Loading sessions from database...")
     
-    # Simulated session data for demonstration
-    # In production, replace with actual MongoDB query
-    np.random.seed(42)
-    n_users = 50
-    sessions_per_user = np.random.randint(10, 50, n_users)
-    
-    sessions = []
-    for user_id in range(n_users):
-        # Simulate user profile
-        user_skill = np.random.choice(['Beginner', 'Intermediate', 'Advanced'], 
-                                      p=[0.3, 0.5, 0.2])
+    try:
+        from pymongo import MongoClient
         
-        # Skill-based preferences
-        if user_skill == 'Beginner':
-            wave_range = (0.5, 1.5)
-            wind_range = (2, 8)
-        elif user_skill == 'Intermediate':
-            wave_range = (1.0, 2.5)
-            wind_range = (3, 12)
-        else:  # Advanced
-            wave_range = (1.5, 4.0)
-            wind_range = (5, 15)
+        # Connect to MongoDB
+        client = MongoClient('mongodb://localhost:27017/')
+        db = client['test']
+        sessions_collection = db['sessions']
         
-        for _ in range(sessions_per_user[user_id]):
-            wave_height = np.random.uniform(*wave_range)
-            wind_speed = np.random.uniform(*wind_range)
+        # Query all finished sessions
+        # We only want sessions that have a rating (completed sessions)
+        cursor = sessions_collection.find({
+            'rating': {'$exists': True, '$ne': None}
+        })
+        
+        sessions = list(cursor)
+        
+        if not sessions:
+            print("No sessions found in database.")
+            return pd.DataFrame()
             
-            # Rating based on skill match
-            rating = np.random.randint(3, 6)  # 3-5 stars
-            
-            sessions.append({
-                'userId': f'user_{user_id}',
-                'spotId': f'spot_{np.random.randint(1, 11)}',
-                'conditions.waveHeight': wave_height,
-                'conditions.wavePeriod': np.random.uniform(8, 16),
-                'conditions.windSpeed': wind_speed,
-                'conditions.windDirection': np.random.uniform(0, 360),
-                'conditions.crowdLevel': np.random.choice(['Low', 'Medium', 'High']),
-                'conditions.timeOfDay': np.random.randint(6, 18),
-                'duration': np.random.randint(30, 180),
-                'rating': rating,
-                'enjoyment': rating * 20,  # 60-100
-                'wouldReturn': rating >= 4,
-                'skillLevel': user_skill  # Ground truth for training
-            })
-    
-    df = pd.DataFrame(sessions)
-    print(f"Loaded {len(df)} sessions from {n_users} users")
-    
-    return df
+        # Convert to DataFrame
+        # Flatten nested 'conditions' object if necessary
+        # MongoDB returns nested dicts, pandas json_normalize helps
+        df = pd.json_normalize(sessions)
+        
+        # Rename columns to match expected format if needed
+        # json_normalize creates 'conditions.waveHeight' etc. automatically
+        
+        print(f"Loaded {len(df)} sessions from database")
+        return df
+        
+    except ImportError:
+        print("❌ Error: pymongo not installed. Please run 'pip install pymongo'")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Error connecting to MongoDB: {e}")
+        return pd.DataFrame()
 
 
 def main():

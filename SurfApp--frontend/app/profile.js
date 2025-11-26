@@ -25,7 +25,7 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
   
   // Modal States
-  const [activeModal, setActiveModal] = useState(null); // 'profile', 'password', 'preferences', null
+  const [activeModal, setActiveModal] = useState(null);
   
   // Form States
   const [profileForm, setProfileForm] = useState({ name: '', email: '' });
@@ -35,7 +35,10 @@ const ProfileScreen = () => {
   // All Sessions Modal State
   const [allSessions, setAllSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [sessionFilter, setSessionFilter] = useState('newest'); // 'newest', 'oldest', 'highest_rated'
+  const [sessionFilter, setSessionFilter] = useState('newest');
+  
+  // Session Details Modal State
+  const [selectedSession, setSelectedSession] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +71,7 @@ const ProfileScreen = () => {
     if (!userId) return;
     try {
       setSessionsLoading(true);
-      const data = await getUserSessions(userId, 100); // Fetch up to 100 sessions
+      const data = await getUserSessions(userId, 100);
       setAllSessions(data.sessions || []);
     } catch (error) {
       console.error('Error loading all sessions:', error);
@@ -204,6 +207,42 @@ const ProfileScreen = () => {
     );
   };
 
+  const SessionCard = ({ session, onPress }) => (
+    <TouchableOpacity onPress={() => onPress(session)} style={styles.sessionCard} activeOpacity={0.7}>
+      <View style={styles.sessionHeader}>
+        <Text style={styles.sessionSpot}>{session.spotName}</Text>
+        <View style={styles.ratingBadge}>
+          <Text style={styles.ratingText}>{session.rating}</Text>
+          <Text style={styles.starIcon}>⭐</Text>
+        </View>
+      </View>
+      <View style={styles.sessionMetaRow}>
+        <Text style={styles.sessionDate}>
+          {new Date(session.startTime).toLocaleDateString()}
+        </Text>
+        <Text style={styles.sessionDuration}>
+          {session.duration} min
+        </Text>
+      </View>
+      {session.comments && (
+        <Text style={styles.sessionComments} numberOfLines={2}>
+          "{session.comments}"
+        </Text>
+      )}
+      <View style={styles.sessionConditions}>
+        <View style={styles.conditionItem}>
+          <Text style={styles.conditionIcon}>🌊</Text>
+          <Text style={styles.conditionText}>{session.conditions?.waveHeight || session.waveHeight}m</Text>
+        </View>
+        <View style={styles.conditionItem}>
+          <Text style={styles.conditionIcon}>💨</Text>
+          <Text style={styles.conditionText}>{session.conditions?.windSpeed || session.windSpeed}kph</Text>
+        </View>
+      </View>
+      <Text style={styles.tapToView}>Tap to view details</Text>
+    </TouchableOpacity>
+  );
+
   if (!user) {
     return (
       <LinearGradient colors={['#f0f9ff', '#e0f2fe']} style={styles.gradient}>
@@ -216,9 +255,6 @@ const ProfileScreen = () => {
             <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
               <Text style={styles.loginButtonText}>Sign In</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.registerButton} onPress={() => router.push('/register')}>
-              <Text style={styles.registerButtonText}>Create Account</Text>
-            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </LinearGradient>
@@ -226,9 +262,9 @@ const ProfileScreen = () => {
   }
 
   return (
-    <LinearGradient colors={['#f0f9ff', '#e0f2fe', '#ffffff']} style={styles.gradient}>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+    <LinearGradient colors={['#f0f9ff', '#e0f2fe']} style={styles.gradient}>
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           {/* Header & Profile Summary */}
           <View style={styles.header}>
@@ -315,7 +351,18 @@ const ProfileScreen = () => {
                     <Text style={styles.insightValue}>{insights.favoriteSpots[0].spotName}</Text>
                   </View>
                 )}
-                {/* Always show preferred conditions if available, or N/A */}
+                <View style={styles.insightRow}>
+                  <Text style={styles.insightLabel}>Avg Duration</Text>
+                  <Text style={styles.insightValue}>
+                    {insights.avgSessionDuration ? `${insights.avgSessionDuration} min` : 'N/A'}
+                  </Text>
+                </View>
+                {insights.bestTimesOfDay && insights.bestTimesOfDay.length > 0 && (
+                  <View style={styles.insightRow}>
+                    <Text style={styles.insightLabel}>Best Time</Text>
+                    <Text style={styles.insightValue}>{insights.bestTimesOfDay[0].timeRange}</Text>
+                  </View>
+                )}
                 <View style={styles.insightRow}>
                   <Text style={styles.insightLabel}>Preferred Wave Height</Text>
                   <Text style={styles.insightValue}>
@@ -337,63 +384,111 @@ const ProfileScreen = () => {
           ) : null}
 
           {/* Recent Sessions */}
-          {sessions.length > 0 && (
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Recent Sessions</Text>
-                <TouchableOpacity onPress={() => {
-                  setActiveModal('sessions');
-                  fetchAllSessions();
-                }}>
-                  <Text style={styles.editLink}>See All</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {sessions.slice(0, 3).map((session, index) => (
-                <View key={session._id || index} style={styles.sessionCard}>
-                  <View style={styles.sessionHeader}>
-                    <Text style={styles.sessionSpot}>{session.spotName}</Text>
-                    <View style={styles.ratingBadge}>
-                      <Text style={styles.ratingText}>{session.rating}</Text>
-                      <Text style={styles.starIcon}>⭐</Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={styles.sessionDate}>
-                    {new Date(session.startTime).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </Text>
-                  
-                  <View style={styles.sessionConditions}>
-                    <View style={styles.conditionItem}>
-                      <Text style={styles.conditionIcon}>🌊</Text>
-                      <Text style={styles.conditionText}>
-                        {session.conditions?.waveHeight ? `${session.conditions.waveHeight}m` : 'N/A'}
-                      </Text>
-                    </View>
-                    <View style={styles.conditionItem}>
-                      <Text style={styles.conditionIcon}>💨</Text>
-                      <Text style={styles.conditionText}>
-                        {session.conditions?.windSpeed ? `${session.conditions.windSpeed} kph` : 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Recent Sessions</Text>
+              <TouchableOpacity onPress={() => {
+                fetchAllSessions();
+                setActiveModal('sessions');
+              }}>
+                <Text style={styles.editLink}>View All</Text>
+              </TouchableOpacity>
             </View>
-          )}
 
-          {/* Logout */}
-          <View style={styles.logoutContainer}>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutText}>Sign Out</Text>
-            </TouchableOpacity>
+            {sessions.map((session) => (
+              <SessionCard key={session._id} session={session} onPress={setSelectedSession} />
+            ))}
           </View>
 
+          {/* Logout Button */}
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
         </ScrollView>
+
+        {/* Session Details Modal */}
+        <Modal
+          visible={selectedSession !== null}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setSelectedSession(null)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.detailsModalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Session Details</Text>
+                <TouchableOpacity onPress={() => setSelectedSession(null)}>
+                  <Text style={styles.closeButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {selectedSession && (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Spot</Text>
+                    <Text style={styles.detailValue}>{selectedSession.spotName}</Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Date</Text>
+                    <Text style={styles.detailValue}>
+                      {new Date(selectedSession.startTime).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Time</Text>
+                    <Text style={styles.detailValue}>
+                      {new Date(selectedSession.startTime).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })} - {new Date(selectedSession.endTime).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Duration</Text>
+                    <Text style={styles.detailValue}>{selectedSession.duration} minutes</Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Rating</Text>
+                    <Text style={styles.detailValue}>{selectedSession.rating} ⭐</Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Wave Height</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedSession.conditions?.waveHeight || selectedSession.waveHeight}m
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Wind Speed</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedSession.conditions?.windSpeed || selectedSession.windSpeed} kph
+                    </Text>
+                  </View>
+
+                  {selectedSession.comments && (
+                    <View style={styles.detailRowFull}>
+                      <Text style={styles.detailLabel}>Comments</Text>
+                      <Text style={styles.detailComments}>{selectedSession.comments}</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Edit Profile Modal */}
         <Modal
@@ -614,168 +709,137 @@ const ProfileScreen = () => {
             </View>
 
             {sessionsLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#0ea5e9" />
-              </View>
+              <ActivityIndicator size="large" color="#0ea5e9" style={{ marginTop: 40 }} />
             ) : (
               <FlatList
                 data={getFilteredSessions()}
-                keyExtractor={(item, index) => item._id || index.toString()}
+                keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.sessionsListContent}
                 renderItem={({ item }) => (
-                  <View style={styles.sessionCard}>
-                    <View style={styles.sessionHeader}>
-                      <Text style={styles.sessionSpot}>{item.spotName}</Text>
-                      <View style={styles.ratingBadge}>
-                        <Text style={styles.ratingText}>{item.rating}</Text>
-                        <Text style={styles.starIcon}>⭐</Text>
-                      </View>
-                    </View>
-                    
-                    <Text style={styles.sessionDate}>
-                      {new Date(item.startTime).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </Text>
-                    
-                    {item.comments && (
-                      <Text style={styles.sessionComments}>{item.comments}</Text>
-                    )}
-
-                    <View style={styles.sessionConditions}>
-                      <View style={styles.conditionItem}>
-                        <Text style={styles.conditionIcon}>🌊</Text>
-                        <Text style={styles.conditionText}>
-                          {item.conditions?.waveHeight ? `${item.conditions.waveHeight}m` : 'N/A'}
-                        </Text>
-                      </View>
-                      <View style={styles.conditionItem}>
-                        <Text style={styles.conditionIcon}>💨</Text>
-                        <Text style={styles.conditionText}>
-                          {item.conditions?.windSpeed ? `${item.conditions.windSpeed} kph` : 'N/A'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+                  <SessionCard session={item} onPress={setSelectedSession} />
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No sessions found.</Text>
+                    <Text style={styles.emptyText}>No sessions found</Text>
                   </View>
                 }
               />
             )}
           </SafeAreaView>
         </Modal>
-
       </SafeAreaView>
     </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
   container: { flex: 1 },
-  scrollContent: { paddingBottom: 30 },
-  header: { padding: 20, paddingTop: 10 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#0f172a', marginBottom: 16 },
+  gradient: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
   
+  // Guest View
+  guestContainer: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  guestContent: { alignItems: 'center', width: '100%' },
+  guestTitle: { fontSize: 28, fontWeight: 'bold', color: '#0f172a', marginBottom: 12, textAlign: 'center' },
+  guestSubtitle: { fontSize: 16, color: '#64748b', textAlign: 'center', marginBottom: 32, lineHeight: 24 },
+  loginButton: {
+    backgroundColor: '#0ea5e9', paddingVertical: 16, paddingHorizontal: 32,
+    borderRadius: 12, width: '100%', alignItems: 'center',
+    shadowColor: '#0ea5e9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+    marginBottom: 16,
+  },
+  loginButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+
+  // Header
+  header: { padding: 20, paddingTop: 60 },
+  headerTitle: { fontSize: 32, fontWeight: 'bold', color: '#0f172a', marginBottom: 20 },
   profileCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: 'white', borderRadius: 24, padding: 20,
+    shadowColor: '#0ea5e9', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
   },
   profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   avatarContainer: {
-    width: 60, height: 60, borderRadius: 30, backgroundColor: '#0ea5e9',
-    justifyContent: 'center', alignItems: 'center', marginRight: 16
+    width: 80, height: 80, borderRadius: 40, backgroundColor: '#0ea5e9',
+    justifyContent: 'center', alignItems: 'center', marginRight: 16,
+    shadowColor: '#0ea5e9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  avatarText: { color: 'white', fontSize: 24, fontWeight: 'bold' },
+  avatarText: { fontSize: 32, fontWeight: 'bold', color: 'white' },
   profileInfo: { flex: 1 },
-  userName: { fontSize: 20, fontWeight: 'bold', color: '#0f172a' },
+  userName: { fontSize: 24, fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
   userEmail: { fontSize: 14, color: '#64748b' },
-  editLink: { color: '#0ea5e9', fontWeight: '600', fontSize: 15 },
+  editLink: { color: '#0ea5e9', fontSize: 14, fontWeight: '600', marginTop: 4 },
   
-  actionButtons: { flexDirection: 'row', gap: 10 },
+  actionButtons: { gap: 12 },
   actionButton: {
-    flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#f1f5f9', alignItems: 'center'
-  },
-  actionButtonText: { color: '#475569', fontWeight: '600', fontSize: 13 },
-  deleteButton: { backgroundColor: '#fee2e2' },
-  deleteButtonText: { color: '#ef4444' },
-
-  sectionContainer: { paddingHorizontal: 20, marginBottom: 24 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
-  
-  summaryCard: {
-    backgroundColor: 'white', borderRadius: 16, padding: 16,
+    backgroundColor: '#f1f5f9', paddingVertical: 12, borderRadius: 12, alignItems: 'center',
     borderWidth: 1, borderColor: '#e2e8f0',
   },
-  summaryRow: {
-    flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#f1f5f9'
+  actionButtonText: { color: '#475569', fontSize: 16, fontWeight: '600' },
+  deleteButton: { backgroundColor: '#fee2e2', borderColor: '#fecaca' },
+  deleteButtonText: { color: '#ef4444' },
+
+  // Sections
+  sectionContainer: { marginTop: 24, paddingHorizontal: 20 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#0f172a' },
+  
+  summaryCard: {
+    backgroundColor: 'white', borderRadius: 20, padding: 20,
+    shadowColor: '#64748b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3,
   },
-  summaryLabel: { fontSize: 15, color: '#64748b' },
-  summaryValue: { fontSize: 15, color: '#0f172a', fontWeight: '600' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  summaryLabel: { fontSize: 16, color: '#64748b' },
+  summaryValue: { fontSize: 16, fontWeight: '600', color: '#0f172a' },
 
   insightsCard: {
-    backgroundColor: 'white', borderRadius: 16, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    backgroundColor: 'white', borderRadius: 20, padding: 20,
+    shadowColor: '#64748b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3,
   },
-  insightRow: {
-    flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#f1f5f9'
-  },
-  insightLabel: { fontSize: 15, color: '#64748b' },
-  insightValue: { fontSize: 15, color: '#0f172a', fontWeight: 'bold' },
+  insightRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  insightLabel: { fontSize: 16, color: '#64748b' },
+  insightValue: { fontSize: 16, fontWeight: 'bold', color: '#0ea5e9' },
 
-  logoutContainer: { padding: 20 },
-  logoutButton: {
-    backgroundColor: '#ef4444', padding: 16, borderRadius: 12, alignItems: 'center',
-    shadowColor: '#ef4444', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
-  },
-  logoutText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-
-  // Modal Styles
-  modalContainer: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
-  },
+  // Modals
+  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalContent: {
-    backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, minHeight: '50%',
+    backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 10,
   },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24
+  detailsModalContent: {
+    backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 10,
+    maxHeight: '80%',
   },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#0f172a' },
-  closeButton: { fontSize: 24, color: '#64748b', padding: 4 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 24, fontWeight: 'bold', color: '#0f172a' },
+  closeButton: { fontSize: 24, color: '#94a3b8', padding: 4 },
   
-  inputLabel: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 8 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 8, marginTop: 16 },
   modalInput: {
-    backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0',
-    borderRadius: 12, padding: 16, fontSize: 16, color: '#0f172a', marginBottom: 20
+    backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, fontSize: 16, color: '#0f172a',
+    borderWidth: 1, borderColor: '#e2e8f0',
   },
   saveButton: {
-    backgroundColor: '#0ea5e9', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10
+    backgroundColor: '#0ea5e9', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 32,
+    shadowColor: '#0ea5e9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  saveButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  saveButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
 
-  // Preference Edit Styles
-  prefSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginTop: 16, marginBottom: 12 },
-  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 },
+  // Session Details Modal
+  detailRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
+  },
+  detailRowFull: {
+    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
+  },
+  detailLabel: { fontSize: 16, fontWeight: '600', color: '#64748b' },
+  detailValue: { fontSize: 16, color: '#0f172a', textAlign: 'right', flex: 1, marginLeft: 16 },
+  detailComments: { fontSize: 16, color: '#0f172a', marginTop: 8, fontStyle: 'italic' },
+
+  // Preferences
+  prefSectionTitle: { fontSize: 18, fontWeight: '600', color: '#0f172a', marginTop: 24, marginBottom: 12 },
+  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionButton: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
     paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, margin: 4,
@@ -792,167 +856,68 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: '#f8fafc', borderRadius: 12, padding: 12,
     borderWidth: 1, borderColor: '#e2e8f0',
   },
-  rangeLabel: { fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 4 },
-  input: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', textAlign: 'center' },
-  rangeSeparator: { marginHorizontal: 12, color: '#64748b', fontWeight: '500' },
+  rangeLabel: { fontSize: 12, color: '#64748b', marginBottom: 4 },
+  input: { fontSize: 16, fontWeight: '600', color: '#0f172a' },
+  rangeSeparator: { marginHorizontal: 12, color: '#94a3b8', fontWeight: '600' },
 
-  // Guest Styles
-  guestContainer: { justifyContent: 'center', alignItems: 'center' },
-  guestContent: { padding: 30, alignItems: 'center', width: '100%' },
-  guestTitle: { fontSize: 28, fontWeight: 'bold', color: '#0f172a', marginBottom: 12, textAlign: 'center' },
-  guestSubtitle: { fontSize: 16, color: '#64748b', textAlign: 'center', marginBottom: 40, lineHeight: 24 },
-  loginButton: {
-    backgroundColor: '#0ea5e9', paddingVertical: 16, paddingHorizontal: 32,
-    borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 16,
-    shadowColor: '#0ea5e9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
+  // Logout Button
+  logoutButton: {
+    backgroundColor: '#ef4444', paddingVertical: 16, borderRadius: 12, alignItems: 'center',
+    marginHorizontal: 20, marginTop: 32,
+    shadowColor: '#ef4444', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  loginButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  registerButton: {
-    backgroundColor: 'white', paddingVertical: 16, paddingHorizontal: 32,
-    borderRadius: 12, width: '100%', alignItems: 'center', borderWidth: 2, borderColor: '#e2e8f0',
-  },
-  registerButtonText: { color: '#0f172a', fontSize: 18, fontWeight: 'bold' },
+  logoutButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
 
   // Session Card Styles
   sessionCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    backgroundColor: 'white', borderRadius: 16, padding: 16, marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    borderWidth: 1, borderColor: '#f1f5f9',
   },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sessionSpot: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
+  sessionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  sessionSpot: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
   ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fffbeb',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#fcd34d',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffbeb',
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+    borderWidth: 1, borderColor: '#fcd34d',
   },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#b45309',
-    marginRight: 4,
-  },
-  starIcon: {
-    fontSize: 10,
-  },
-  sessionDate: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 12,
-  },
-  sessionConditions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  ratingText: { fontSize: 13, fontWeight: 'bold', color: '#b45309', marginRight: 4 },
+  starIcon: { fontSize: 10 },
+  sessionMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sessionDate: { fontSize: 13, color: '#64748b' },
+  sessionDuration: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  sessionConditions: { flexDirection: 'row', gap: 12 },
   conditionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f9ff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f9ff',
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
   },
-  conditionIcon: {
-    fontSize: 12,
-    marginRight: 6,
-  },
-  conditionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0369a1',
-  },
+  conditionIcon: { fontSize: 12, marginRight: 6 },
+  conditionText: { fontSize: 12, fontWeight: '600', color: '#0369a1' },
+  sessionComments: { fontSize: 14, color: '#334155', fontStyle: 'italic', marginTop: 12, marginBottom: 4 },
+  tapToView: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 12 },
 
   // Full Screen Modal Styles
-  fullScreenModal: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
+  fullScreenModal: { flex: 1, backgroundColor: '#f8fafc' },
   modalHeaderBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'white',
+    borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
   },
-  modalHeaderTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  closeButtonContainer: {
-    padding: 4,
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: '#0ea5e9',
-    fontWeight: '600',
-  },
-  filterContainer: {
-    backgroundColor: 'white',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  filterScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
+  modalHeaderTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
+  closeButtonContainer: { padding: 4 },
+  closeButtonText: { fontSize: 16, color: '#0ea5e9', fontWeight: '600' },
+  filterContainer: { backgroundColor: 'white', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  filterScroll: { paddingHorizontal: 16, gap: 8 },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0',
   },
-  filterChipActive: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0ea5e9',
-  },
-  filterChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  filterChipTextActive: {
-    color: 'white',
-  },
-  sessionsListContent: {
-    padding: 16,
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#64748b',
-  },
+  filterChipActive: { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' },
+  filterChipText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+  filterChipTextActive: { color: 'white' },
+  sessionsListContent: { padding: 16 },
+  emptyContainer: { padding: 40, alignItems: 'center' },
+  emptyText: { fontSize: 16, color: '#64748b' },
 });
 
 export default ProfileScreen;

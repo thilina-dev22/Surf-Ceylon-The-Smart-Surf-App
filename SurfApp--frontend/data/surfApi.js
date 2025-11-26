@@ -1,6 +1,7 @@
 import { addDistanceToSpots } from './locationUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL as API_BASE_URL } from './config';
+import surfSpotsData from './surf_spots.json';
 
 const REQUEST_TIMEOUT = 30000; // 30 seconds (increased for 31 spots)
 const MAX_RETRIES = 2;
@@ -436,49 +437,9 @@ export async function getPersonalizedRecommendations(userId, spotId) {
 
 /**
  * Comprehensive list of Sri Lankan surf spots.
- * These coordinates are used for map markers and distance calculations.
- * Format: [longitude, latitude]
+ * Imported from shared JSON file.
  */
-export const surfSpots = [
-  // South Coast - Best November to April
-  { id: '1', name: 'Weligama', region: 'South Coast', coords: [80.4264, 5.9721] },
-  { id: '2', name: 'Midigama', region: 'South Coast', coords: [80.3833, 5.9611] },
-  { id: '3', name: 'Hiriketiya', region: 'South Coast', coords: [80.6863, 5.9758] },
-  { id: '4', name: 'Unawatuna', region: 'South Coast', coords: [80.2505, 6.0093] },
-  { id: '5', name: 'Hikkaduwa', region: 'South Coast', coords: [80.0998, 6.1376] },
-  { id: '6', name: 'Madiha', region: 'South Coast', coords: [80.5833, 5.9833] },
-  { id: '7', name: 'Mirissa', region: 'South Coast', coords: [80.4611, 5.9461] },
-  { id: '8', name: 'Ahangama', region: 'South Coast', coords: [80.3667, 5.9667] },
-  { id: '9', name: 'Kabalana', region: 'South Coast', coords: [80.1167, 6.1333] },
-  { id: '10', name: 'Dewata', region: 'South Coast', coords: [80.2833, 5.9833] },
-  { id: '11', name: 'Polhena', region: 'South Coast', coords: [80.3500, 5.9500] },
-  { id: '12', name: 'Talalla', region: 'South Coast', coords: [80.5667, 5.9667] },
-  
-  // East Coast - Best April to October
-  { id: '13', name: 'Arugam Bay', region: 'East Coast', coords: [81.8293, 6.8434] },
-  { id: '14', name: 'Pottuvil Point', region: 'East Coast', coords: [81.8333, 6.8667] },
-  { id: '15', name: 'Whiskey Point', region: 'East Coast', coords: [81.8250, 6.8333] },
-  { id: '16', name: 'Peanut Farm', region: 'East Coast', coords: [81.8167, 6.8167] },
-  { id: '17', name: 'Okanda', region: 'East Coast', coords: [81.6574, 6.6604] },
-  { id: '18', name: 'Lighthouse Point', region: 'East Coast', coords: [81.8400, 6.8500] },
-  { id: '19', name: 'Crocodile Rock', region: 'East Coast', coords: [81.8100, 6.8100] },
-  { id: '20', name: 'Panama', region: 'East Coast', coords: [81.7833, 6.7667] },
-  { id: '21', name: 'Kalmunai', region: 'East Coast', coords: [81.8222, 7.4089] },
-  { id: '22', name: 'Pasikudah', region: 'East Coast', coords: [81.5581, 7.9286] },
-  
-  // West Coast - Variable conditions
-  { id: '23', name: 'Mount Lavinia', region: 'West Coast', coords: [79.8633, 6.8400] },
-  { id: '24', name: 'Wellawatte', region: 'West Coast', coords: [79.8589, 6.8667] },
-  { id: '25', name: 'Negombo', region: 'West Coast', coords: [79.8358, 7.2083] },
-  { id: '26', name: 'Bentota', region: 'West Coast', coords: [79.9958, 6.4258] },
-  { id: '27', name: 'Kalutara', region: 'West Coast', coords: [79.9589, 6.5844] },
-  { id: '28', name: 'Wadduwa', region: 'West Coast', coords: [79.9292, 6.6667] },
-  { id: '29', name: 'Beruwala', region: 'West Coast', coords: [79.9831, 6.4786] },
-  
-  // North and North-West Coast
-  { id: '30', name: 'Kalpitiya', region: 'North-West Coast', coords: [79.7667, 8.2333] },
-  { id: '31', name: 'Mannar', region: 'North Coast', coords: [79.9042, 8.9811] },
-];
+export const surfSpots = surfSpotsData;
 
 /**
  * Clear the cached spot data

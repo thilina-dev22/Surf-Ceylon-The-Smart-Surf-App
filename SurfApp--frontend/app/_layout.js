@@ -1,36 +1,19 @@
 import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { UserProvider } from '../context/UserContext';
-import * as Font from 'expo-font'; // Import Font
-import { Ionicons } from '@expo/vector-icons'; // Import a sample Icon set
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// NOTE: We need to hide the splash screen once fonts are loaded
 import * as SplashScreen from 'expo-splash-screen'; 
+
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
-// NO MAPBOX CODE SHOULD BE IN THIS FILE
-
 export default function AppLayout() {
-  const [fontsLoaded, fontError] = Font.useFonts(Ionicons.font);
+  const [fontsLoaded, fontError] = useFonts({
+    ...Ionicons.font,
+  });
 
-  // Force clear cache on app start to ensure fresh data
-  useEffect(() => {
-    (async () => {
-      try {
-        const CACHE_KEY = 'surf_spots_cache';
-        console.log('🧹 Force clearing surf spots cache on startup');
-        await AsyncStorage.removeItem(CACHE_KEY);
-        console.log('✅ Cache cleared - will fetch fresh data');
-      } catch (error) {
-        console.warn('Cache cleanup error:', error);
-      }
-    })();
-  }, []);
-
-  // Hide the splash screen once fonts are loaded or an error occurs
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
@@ -38,8 +21,7 @@ export default function AppLayout() {
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) {
-    // Return an empty view while waiting for fonts to load
-    return null; 
+    return null;
   }
 
   return (
