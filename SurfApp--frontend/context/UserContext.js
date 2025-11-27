@@ -20,6 +20,10 @@ export const UserProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState(null); // Keep for backward compatibility with existing components
 
+  // Active session tracking
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [activeSessionSpot, setActiveSessionSpot] = useState(null);
+
   // Auth functions
   const login = async (email, password) => {
     try {
@@ -162,6 +166,8 @@ export const UserProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setUserId(null);
+    setActiveSessionId(null);
+    setActiveSessionSpot(null);
     setUserPreferences({
       skillLevel: 'Beginner',
       minWaveHeight: 0.5,
@@ -169,6 +175,17 @@ export const UserProvider = ({ children }) => {
       tidePreference: 'Any',
       boardType: 'Soft-top',
     });
+  };
+
+  // Session management functions
+  const setActiveSession = (sessionId, spotInfo) => {
+    setActiveSessionId(sessionId);
+    setActiveSessionSpot(spotInfo);
+  };
+
+  const clearActiveSession = () => {
+    setActiveSessionId(null);
+    setActiveSessionSpot(null);
   };
 
   const updateUserPreferences = async (newPreferences) => {
@@ -319,6 +336,10 @@ export const UserProvider = ({ children }) => {
     locationLoading,
     selectedSpot,
     setSelectedSpot,
+    activeSessionId,
+    activeSessionSpot,
+    setActiveSession,
+    clearActiveSession,
   };
 
   return (

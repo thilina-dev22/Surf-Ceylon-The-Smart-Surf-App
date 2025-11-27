@@ -11,12 +11,14 @@ import { useUser } from '../../context/UserContext';
 const SpotDetailScreen = () => {
   const router = useRouter();
   const { origin } = useLocalSearchParams();
-  const { userId, selectedSpot: spot } = useUser();
-  const [activeSessionId, setActiveSessionId] = useState(null);
+  const { userId, selectedSpot: contextSpot, activeSessionId, activeSessionSpot, setActiveSession, clearActiveSession } = useUser();
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [sessionRating, setSessionRating] = useState(3);
   const [wouldReturn, setWouldReturn] = useState(true);
   const [sessionComments, setSessionComments] = useState('');
+
+  // If coming from banner with active session, use activeSessionSpot
+  const spot = (origin === 'banner' && activeSessionSpot) ? activeSessionSpot : contextSpot;
 
   if (!spot) {
     return (
@@ -93,7 +95,7 @@ const SpotDetailScreen = () => {
       
       const session = await startSession(userId, spot.id, spot.name, conditions);
       if (session && session.sessionId) {
-        setActiveSessionId(session.sessionId);
+        setActiveSession(session.sessionId, spot);
         console.log('Session started successfully:', session.sessionId);
         // Alert only works when attached to an activity
         setTimeout(() => {
@@ -110,7 +112,7 @@ const SpotDetailScreen = () => {
   const handleEndSession = async () => {
     try {
       await endSession(activeSessionId, sessionRating, wouldReturn, sessionComments);
-      setActiveSessionId(null);
+      clearActiveSession();
       setShowEndSessionModal(false);
       setSessionRating(3);
       setWouldReturn(true);
@@ -123,7 +125,7 @@ const SpotDetailScreen = () => {
     } catch (error) {
       console.error('End session error:', error);
       // Still close modal and reset state even if backend fails
-      setActiveSessionId(null);
+      clearActiveSession();
       setShowEndSessionModal(false);
       setSessionRating(3);
       setWouldReturn(true);
