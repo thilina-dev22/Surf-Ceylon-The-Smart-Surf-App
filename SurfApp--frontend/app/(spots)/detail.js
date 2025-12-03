@@ -262,7 +262,7 @@ const SpotDetailScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📈 7-Day Wave Forecast</Text>
           <View style={styles.chartContainer}>
-            <ForecastChart />
+            <ForecastChart spotId={spot.id} />
           </View>
         </View>
 

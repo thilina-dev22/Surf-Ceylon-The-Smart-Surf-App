@@ -59,7 +59,8 @@ const getPythonExecutable = () => {
 };
 
 const PYTHON_EXECUTABLE = getPythonExecutable();
-const ML_SCRIPT_PATH = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'predict_service.py');
+const SPOT_RECOMMENDER_SCRIPT = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'spot_recommender_service.py');
+const FORECAST_7DAY_SCRIPT = path.resolve(__dirname, '..', 'surfapp--ml-engine', 'forecast_7day_service.py');
 
 // --- 🎯 OPTIMIZED CACHE FOR BETTER PERFORMANCE ---
 const cache = {
@@ -222,7 +223,7 @@ app.get('/api/spots', (req, res) => {
     }
     
     console.log("Cache is stale or empty. Fetching new data from Python script.");
-    const pythonProcess = spawn(PYTHON_EXECUTABLE, [ML_SCRIPT_PATH]);
+    const pythonProcess = spawn(PYTHON_EXECUTABLE, [SPOT_RECOMMENDER_SCRIPT]);
 
     let pythonOutput = '';
     let pythonError = '';
@@ -366,16 +367,95 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.get('/api/forecast-chart', (req, res) => {
+// 7-Day Multi-Output Forecast Endpoint
+app.get('/api/forecast-chart', async (req, res) => {
     try {
-        const chartData = {
-            labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-            datasets: [{ data: [1.2, 1.5, 1.3, 2.0, 2.2, 1.8, 1.6] }],
-        };
-        res.json(chartData);
+        const spotId = req.query.spotId || '2'; // Default to Weligama
+        
+        // Load surf spots to get coordinates
+        const spotsPath = path.join(__dirname, '..', 'SurfApp--frontend', 'data', 'surf_spots.json');
+        const spotsData = JSON.parse(fs.readFileSync(spotsPath, 'utf8'));
+        const spot = spotsData.find(s => s.id === spotId);
+        
+        if (!spot || !spot.coords || spot.coords.length !== 2) {
+            return res.status(404).json({ error: 'Spot not found or invalid coordinates' });
+        }
+
+        const [lng, lat] = spot.coords;
+        
+        console.log(`Fetching 7-day forecast for ${spot.name} (${lat}, ${lng})...`);
+        
+        // Call Python 7-day forecast service
+        const pythonProcess = spawn(PYTHON_EXECUTABLE, [FORECAST_7DAY_SCRIPT, lat.toString(), lng.toString()]);
+
+        let pythonOutput = '';
+        let pythonError = '';
+
+        pythonProcess.stdout.on('data', (data) => pythonOutput += data.toString());
+        pythonProcess.stderr.on('data', (data) => {
+            pythonError += data.toString();
+            console.log(`[FORECAST LOG]: ${data.toString().trim()}`);
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code !== 0) {
+                console.error('7-day forecast script failed:', pythonError);
+                // Fallback to mock data
+                return res.json({
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    waveHeight: [1.2, 1.4, 1.3, 1.6, 1.5, 1.4, 1.3],
+                    wavePeriod: [10, 11, 10, 12, 11, 10, 10],
+                    swellHeight: [1.0, 1.2, 1.1, 1.4, 1.3, 1.2, 1.1],
+                    swellPeriod: [12, 13, 12, 14, 13, 12, 12],
+                    windSpeed: [15, 14, 16, 13, 15, 14, 15],
+                    windDirection: [180, 190, 185, 200, 195, 180, 185],
+                    metadata: { dataSource: 'Mock', forecastMethod: 'Fallback' }
+                });
+            }
+
+            try {
+                const forecastData = JSON.parse(pythonOutput);
+                
+                // Format for frontend
+                res.json({
+                    labels: forecastData.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    waveHeight: forecastData.forecast.waveHeight,
+                    wavePeriod: forecastData.forecast.wavePeriod,
+                    swellHeight: forecastData.forecast.swellHeight,
+                    swellPeriod: forecastData.forecast.swellPeriod,
+                    windSpeed: forecastData.forecast.windSpeed,
+                    windDirection: forecastData.forecast.windDirection,
+                    metadata: forecastData.metadata || {}
+                });
+            } catch (error) {
+                console.error('Error parsing forecast data:', error);
+                // Fallback to mock data
+                res.json({
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    waveHeight: [1.2, 1.4, 1.3, 1.6, 1.5, 1.4, 1.3],
+                    wavePeriod: [10, 11, 10, 12, 11, 10, 10],
+                    swellHeight: [1.0, 1.2, 1.1, 1.4, 1.3, 1.2, 1.1],
+                    swellPeriod: [12, 13, 12, 14, 13, 12, 12],
+                    windSpeed: [15, 14, 16, 13, 15, 14, 15],
+                    windDirection: [180, 190, 185, 200, 195, 180, 185],
+                    metadata: { dataSource: 'Mock', forecastMethod: 'Fallback' }
+                });
+            }
+        });
+
     } catch (error) {
-        console.error('Error generating chart data:', error);
-        res.status(500).json({ error: 'Failed to generate chart data' });
+        console.error('Error in forecast endpoint:', error);
+        // Fallback to mock data
+        res.json({
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            waveHeight: [1.2, 1.4, 1.3, 1.6, 1.5, 1.4, 1.3],
+            wavePeriod: [10, 11, 10, 12, 11, 10, 10],
+            swellHeight: [1.0, 1.2, 1.1, 1.4, 1.3, 1.2, 1.1],
+            swellPeriod: [12, 13, 12, 14, 13, 12, 12],
+            windSpeed: [15, 14, 16, 13, 15, 14, 15],
+            windDirection: [180, 190, 185, 200, 195, 180, 185],
+            metadata: { dataSource: 'Mock', forecastMethod: 'Fallback' }
+        });
     }
 });
 

@@ -9,3 +9,7 @@ matplotlib
 seaborn
 scipy
 numpy
+
+# Optional - for 7-day LSTM forecast model
+# Install with: pip install tensorflow
+# tensorflow>=2.10.0

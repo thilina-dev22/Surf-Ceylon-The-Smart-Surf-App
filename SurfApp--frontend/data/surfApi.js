@@ -257,12 +257,13 @@ export async function getSpotsData(preferences, userLocation = null) {
 }
 
 /**
- * Fetches the 7-day wave forecast data for the chart.
- * This is currently a mock endpoint on the Node.js server.
+ * Fetches the comprehensive 7-day multi-output forecast data for a specific spot
+ * Returns: Wave Height, Wave Period, Swell Height, Swell Period, Wind Speed, Wind Direction
+ * @param {string} spotId - The spot ID to fetch forecast for
  */
-export async function get7DayForecast() {
+export async function get7DayForecast(spotId = '2') {
   try {
-    const response = await fetchWithRetry(`${API_BASE_URL}/forecast-chart`);
+    const response = await fetchWithRetry(`${API_BASE_URL}/forecast-chart?spotId=${spotId}`);
     
     if (!response.ok) {
       throw new Error(`API call failed with status: ${response.status}`);
@@ -270,19 +271,25 @@ export async function get7DayForecast() {
     
     const data = await response.json();
     
-    // Validate chart data structure
-    if (!data || !data.labels || !data.datasets || !Array.isArray(data.datasets)) {
-      throw new Error('Invalid chart data structure');
+    // Validate multi-output forecast data structure
+    if (!data || !data.labels || !data.waveHeight || !data.windSpeed) {
+      throw new Error('Invalid forecast data structure');
     }
     
     return data;
 
   } catch (error) {
-    console.error("Error fetching chart data from API:", error.message);
-    // Return fallback mock data
+    console.error("Error fetching 7-day forecast from API:", error.message);
+    // Return fallback mock data with all parameters
     return { 
-      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 
-      datasets: [{ data: [1.0, 1.2, 1.1, 1.5, 1.4, 1.3, 1.2] }] 
+      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      waveHeight: [1.2, 1.4, 1.3, 1.6, 1.5, 1.4, 1.3],
+      wavePeriod: [10, 11, 10, 12, 11, 10, 10],
+      swellHeight: [1.0, 1.2, 1.1, 1.4, 1.3, 1.2, 1.1],
+      swellPeriod: [12, 13, 12, 14, 13, 12, 12],
+      windSpeed: [15, 14, 16, 13, 15, 14, 15],
+      windDirection: [180, 190, 185, 200, 195, 180, 185],
+      metadata: { dataSource: 'Mock', forecastMethod: 'Fallback' }
     };
   }
 }
