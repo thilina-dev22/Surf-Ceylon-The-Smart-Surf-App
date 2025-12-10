@@ -223,7 +223,9 @@ app.get('/api/spots', (req, res) => {
     }
     
     console.log("Cache is stale or empty. Fetching new data from Python script.");
-    const pythonProcess = spawn(PYTHON_EXECUTABLE, [SPOT_RECOMMENDER_SCRIPT]);
+    const pythonProcess = spawn(PYTHON_EXECUTABLE, [SPOT_RECOMMENDER_SCRIPT], {
+        cwd: path.resolve(__dirname, '..', 'surfapp--ml-engine')
+    });
 
     let pythonOutput = '';
     let pythonError = '';
@@ -386,7 +388,9 @@ app.get('/api/forecast-chart', async (req, res) => {
         console.log(`Fetching 7-day forecast for ${spot.name} (${lat}, ${lng})...`);
         
         // Call Python 7-day forecast service
-        const pythonProcess = spawn(PYTHON_EXECUTABLE, [FORECAST_7DAY_SCRIPT, lat.toString(), lng.toString()]);
+        const pythonProcess = spawn(PYTHON_EXECUTABLE, [FORECAST_7DAY_SCRIPT, lat.toString(), lng.toString()], {
+            cwd: path.resolve(__dirname, '..', 'surfapp--ml-engine')
+        });
 
         let pythonOutput = '';
         let pythonError = '';
