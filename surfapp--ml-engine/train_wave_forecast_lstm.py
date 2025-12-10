@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 # Configuration
 DATA_X_FILE = 'timeseries_X_multioutput.npy'
 DATA_Y_FILE = 'timeseries_y_multioutput.npy'
-MODEL_FILE = 'wave_forecast_multioutput_lstm.h5'
+MODEL_FILE = 'wave_forecast_multioutput_lstm.keras'
 SCALER_X_FILE = 'wave_forecast_scaler_X_multioutput.joblib'
 SCALER_Y_FILE = 'wave_forecast_scaler_y_multioutput.joblib'
 FEATURE_NAMES_FILE = 'wave_forecast_feature_names.joblib'

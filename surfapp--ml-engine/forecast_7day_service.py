@@ -24,7 +24,7 @@ except ImportError:
 STORMGLASS_API_KEY = os.getenv("STORMGLASS_API_KEY")
 
 # Model files
-MODEL_FILE = 'wave_forecast_multioutput_lstm.h5'
+MODEL_FILE = 'wave_forecast_multioutput_lstm.keras'
 SCALER_X_FILE = 'wave_forecast_scaler_X_multioutput.joblib'
 SCALER_Y_FILE = 'wave_forecast_scaler_y_multioutput.joblib'
 FEATURE_NAMES_FILE = 'wave_forecast_feature_names.joblib'
@@ -42,7 +42,9 @@ try:
     TF_AVAILABLE = True
     
     if os.path.exists(MODEL_FILE):
+        # Load native .keras format model (no custom_objects needed)
         model = tf.keras.models.load_model(MODEL_FILE)
+        
         import joblib
         scaler_X = joblib.load(SCALER_X_FILE)
         scaler_y = joblib.load(SCALER_Y_FILE)

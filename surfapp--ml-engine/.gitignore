@@ -11,7 +11,7 @@ __pycache__/
 *.joblib
 *.h5
 *.npy
-
+*.keras
 # Environment
 .env
 .env.local
