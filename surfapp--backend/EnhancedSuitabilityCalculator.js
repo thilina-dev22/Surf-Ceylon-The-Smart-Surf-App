@@ -328,36 +328,89 @@ class EnhancedSuitabilityCalculator {
    * INNOVATION 5: Adaptive Weighted Scoring
    * Dynamically adjusts factor weights based on user skill level
    */
-  getAdaptiveWeights(userSkillLevel) {
-    // Different priorities for different skill levels
-    const weightProfiles = {
+  getAdaptiveWeights(userSkillLevel, userProfile = {}) {
+    // Base weights for different skill levels
+    const baseWeightProfiles = {
       'Beginner': {
-        safety: 0.30,      // Safety is paramount
-        wave: 0.25,        // Gentle, manageable waves
-        crowd: 0.15,       // Prefer less crowded (more space to learn)
-        wind: 0.10,        // Less critical for beginners
-        time: 0.10,        // Good timing helps
-        consistency: 0.10  // Predictable conditions help learning
+        safety: 0.30,
+        wave: 0.25,
+        crowd: 0.15,
+        wind: 0.10,
+        time: 0.10,
+        consistency: 0.10
       },
       'Intermediate': {
-        wave: 0.30,        // Wave quality becomes key
-        consistency: 0.20, // Want good, predictable sessions
-        safety: 0.20,      // Still important
-        wind: 0.15,        // Offshore winds appreciated
-        time: 0.10,        // Timing matters
-        crowd: 0.05        // Can handle more crowds
+        wave: 0.30,
+        consistency: 0.20,
+        safety: 0.20,
+        wind: 0.15,
+        time: 0.10,
+        crowd: 0.05
       },
       'Advanced': {
-        wave: 0.35,        // Chase the best wave quality
-        consistency: 0.20, // Long, consistent sessions
-        wind: 0.20,        // Offshore winds crucial for performance
-        time: 0.10,        // Optimize timing
-        safety: 0.10,      // Can handle challenging conditions
-        crowd: 0.05        // Least concerned about crowds
+        wave: 0.35,
+        consistency: 0.20,
+        wind: 0.20,
+        time: 0.10,
+        safety: 0.10,
+        crowd: 0.05
       }
     };
     
-    return weightProfiles[userSkillLevel] || weightProfiles['Intermediate'];
+    // Get base weights
+    const baseWeights = baseWeightProfiles[userSkillLevel] || baseWeightProfiles['Intermediate'];
+    
+    // Personalize based on user preferences
+    const personalizedWeights = { ...baseWeights };
+    
+    // Adjust wave weight based on preferred wave height
+    if (userProfile.preferredWaveHeight) {
+      if (userProfile.preferredWaveHeight > 2.0) {
+        // User likes bigger waves - increase wave importance
+        personalizedWeights.wave = Math.min(0.40, personalizedWeights.wave + 0.05);
+        personalizedWeights.safety = Math.max(0.05, personalizedWeights.safety - 0.03);
+      } else if (userProfile.preferredWaveHeight < 1.0) {
+        // User prefers smaller waves - increase safety importance
+        personalizedWeights.safety = Math.min(0.35, personalizedWeights.safety + 0.05);
+        personalizedWeights.wave = Math.max(0.20, personalizedWeights.wave - 0.03);
+      }
+    }
+    
+    // Adjust wind weight based on preferred wind speed
+    if (userProfile.preferredWindSpeed) {
+      if (userProfile.preferredWindSpeed < 10) {
+        // User is sensitive to wind - increase wind importance
+        personalizedWeights.wind = Math.min(0.25, personalizedWeights.wind + 0.05);
+        personalizedWeights.time = Math.max(0.05, personalizedWeights.time - 0.03);
+      }
+    }
+    
+    // Adjust based on board type
+    if (userProfile.boardType === 'Shortboard') {
+      // Shortboarders care more about wave consistency and quality
+      personalizedWeights.consistency = Math.min(0.25, personalizedWeights.consistency + 0.03);
+      personalizedWeights.wave = Math.min(0.40, personalizedWeights.wave + 0.02);
+      personalizedWeights.crowd = Math.max(0.03, personalizedWeights.crowd - 0.03);
+    } else if (userProfile.boardType === 'Longboard') {
+      // Longboarders more flexible with conditions
+      personalizedWeights.consistency = Math.max(0.10, personalizedWeights.consistency - 0.02);
+      personalizedWeights.time = Math.min(0.15, personalizedWeights.time + 0.02);
+    }
+    
+    // Adjust based on regional preference
+    if (userProfile.preferredRegion) {
+      // User has regional preference - increase consistency importance
+      personalizedWeights.consistency = Math.min(0.25, personalizedWeights.consistency + 0.02);
+      personalizedWeights.crowd = Math.max(0.03, personalizedWeights.crowd - 0.02);
+    }
+    
+    // Normalize weights to ensure they sum to 1.0
+    const sum = Object.values(personalizedWeights).reduce((a, b) => a + b, 0);
+    Object.keys(personalizedWeights).forEach(key => {
+      personalizedWeights[key] = personalizedWeights[key] / sum;
+    });
+    
+    return personalizedWeights;
   }
 
   /**
@@ -506,8 +559,8 @@ class EnhancedSuitabilityCalculator {
     const safetyData = this.calculateSafetyScore(predictions, spot, userProfile.skillLevel);
     const consistencyScore = this.calculateConsistencyScore(predictions);
     
-    // Get adaptive weights based on skill level
-    const weights = this.getAdaptiveWeights(userProfile.skillLevel);
+    // Get adaptive weights based on skill level and user preferences
+    const weights = this.getAdaptiveWeights(userProfile.skillLevel, userProfile);
     
     // Calculate weighted final score
     const weightedScore = 
