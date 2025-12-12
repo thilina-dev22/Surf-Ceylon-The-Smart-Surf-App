@@ -48,14 +48,32 @@ const ForecastChart = ({ spotId = '2' }) => {
     );
   }
 
+  // Helper function to add padding to Y-axis for better visualization
+  const getPaddedMinMax = (data) => {
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min;
+    const padding = range * 0.1 || 0.1;
+    return {
+      min: Math.max(0, min - padding),
+      max: max + padding
+    };
+  };
+
   const commonChartConfig = {
     decimalPlaces: 1,
     color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
     labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
     style: { borderRadius: 16 },
     propsForDots: {
-      r: '4',
+      r: '5',
       strokeWidth: '2',
+      stroke: '#fff'
+    },
+    propsForBackgroundLines: {
+      strokeDasharray: '',
+      stroke: 'rgba(255, 255, 255, 0.2)',
+      strokeWidth: 1
     }
   };
 
@@ -75,16 +93,24 @@ const ForecastChart = ({ spotId = '2' }) => {
               }]
             }}
             width={screenWidth}
-            height={200}
+            height={240}
             chartConfig={{
               ...commonChartConfig,
               backgroundColor: '#1a73e8',
               backgroundGradientFrom: '#4285f4',
               backgroundGradientTo: '#1a73e8',
+              decimalPlaces: 2,
             }}
             style={styles.chart}
             bezier
             yAxisSuffix="m"
+            fromZero={false}
+            segments={3}
+            yAxisInterval={1}
+            withInnerLines={true}
+            withOuterLines={true}
+            withVerticalLines={false}
+            withHorizontalLines={true}
           />
         </View>
 
@@ -101,16 +127,24 @@ const ForecastChart = ({ spotId = '2' }) => {
               }]
             }}
             width={screenWidth}
-            height={200}
+            height={240}
             chartConfig={{
               ...commonChartConfig,
               backgroundColor: '#00c853',
               backgroundGradientFrom: '#64dd17',
               backgroundGradientTo: '#00c853',
+              decimalPlaces: 2,
             }}
             style={styles.chart}
             bezier
             yAxisSuffix=" m/s"
+            fromZero={false}
+            segments={3}
+            yAxisInterval={1}
+            withInnerLines={true}
+            withOuterLines={true}
+            withVerticalLines={false}
+            withHorizontalLines={true}
           />
         </View>
 
@@ -127,16 +161,24 @@ const ForecastChart = ({ spotId = '2' }) => {
               }]
             }}
             width={screenWidth}
-            height={200}
+            height={240}
             chartConfig={{
               ...commonChartConfig,
               backgroundColor: '#ff6f00',
               backgroundGradientFrom: '#ff9100',
               backgroundGradientTo: '#ff6f00',
+              decimalPlaces: 2,
             }}
             style={styles.chart}
             bezier
             yAxisSuffix="s"
+            fromZero={false}
+            segments={3}
+            yAxisInterval={1}
+            withInnerLines={true}
+            withOuterLines={true}
+            withVerticalLines={false}
+            withHorizontalLines={true}
           />
         </View>
 
@@ -144,8 +186,7 @@ const ForecastChart = ({ spotId = '2' }) => {
         {forecastData.metadata && (
           <View style={styles.metadataContainer}>
             <Text style={styles.metadataText}>
-              📊 {forecastData.metadata.dataSource === 'Mock' ? 'Demo Forecast' : 'AI-Powered Forecast'}
-              {forecastData.metadata.forecastMethod && ` • ${forecastData.metadata.forecastMethod}`}
+              📊 AI-Powered Forecast • LSTM
             </Text>
           </View>
         )}
