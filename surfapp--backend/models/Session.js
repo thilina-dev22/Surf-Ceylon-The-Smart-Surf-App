@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 /**
  * Session Schema - Phase 2
- * Tracks user surf sessions for data collection and personalization
+ * Tracks user surf sessions for data collection and analytics
  */
 const sessionSchema = new mongoose.Schema({
   // User identification

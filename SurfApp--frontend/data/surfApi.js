@@ -422,27 +422,6 @@ export async function getUserInsights(userId) {
 }
 
 /**
- * Get personalized recommendations for a spot
- * @param {string} userId - User ID
- * @param {string} spotId - Spot ID
- * @returns {Object} Personalized insights and recommendations
- */
-export async function getPersonalizedRecommendations(userId, spotId) {
-  try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/personalization/recommendations/${userId}/${spotId}`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to get recommendations: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error getting personalized recommendations:', error);
-    return null;
-  }
-}
-
-/**
  * Comprehensive list of Sri Lankan surf spots.
  * Imported from shared JSON file.
  */

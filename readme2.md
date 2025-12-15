@@ -43,8 +43,8 @@ Surf Ceylon is a full-stack surf forecasting application consisting of three mai
 ┌──────────────────┐         ┌──────────────────┐
 │   ML ENGINE      │         │    MONGODB       │
 │   (Python)       │         │   (Database)     │
-│ • Forecast Model │         │ • Users          │
-│ • Personalization│         │ • Sessions       │
+│ • Model 1 (RF)   │         │ • Users          │
+│ • Model 2 (LSTM) │         │ • Sessions       │
 └──────────────────┘         └──────────────────┘
 ```
 
@@ -105,61 +105,51 @@ Overall R² Score: 79.43%
 - `surf_forecast_model.joblib` - Trained model (72 MB)
 - `model_features.txt` - Feature list and importance
 
-### **2. Personalization Model (preference_model.joblib)**
+### **2. LSTM Forecast Model (wave_forecast_multioutput_lstm.keras)**
 
-**Purpose:** Learns user preferences from surf session history
+**Purpose:** Generates 7-day surf forecasts using deep learning
 
-**Algorithm:** Ensemble of Random Forest models
-- Skill Level Classifier (Beginner/Intermediate/Advanced)
-- Wave Height Preference Regressor
-- Wind Speed Preference Regressor
+**Algorithm:** LSTM (Long Short-Term Memory) Encoder-Decoder
+- Sequence-to-Sequence architecture
+- 168 hours input → 168 hours output
 
 **How It Works:**
 
 ```python
-# 1. DATA COLLECTION
-User logs session → {
-  spot: "Arugam Bay",
-  conditions: {waveHeight: 1.8, windSpeed: 12, ...},
-  rating: 5,
-  duration: 90,
-  wouldReturn: true
-}
+# 1. FETCH HISTORICAL DATA (7 days)
+recent_data = fetch_api(lat, lng, hours=168)
+# Shape: (168 hours, 6 features)
 
-# 2. FEATURE EXTRACTION (per user)
-Features = {
-  avg_wave_height: 1.6,
-  avg_wind_speed: 10.5,
-  prefers_high_waves: 1,
-  prefers_low_wind: 1,
-  total_sessions: 25,
-  avg_rating: 4.2,
-  would_return_rate: 0.85,
+# 2. NORMALIZE & RESHAPE
+X = scaler_X.transform(recent_data)
+X = X.reshape(1, 168, 6)  # 1 sample, 168 timesteps, 6 features
+
+# 3. LSTM PREDICTION
+y_pred = model.predict(X)  # Shape: (1, 168, 6)
+
+# 4. DENORMALIZE & AGGREGATE
+predictions = scaler_y.inverse_transform(y_pred)
+daily_forecast = aggregate_to_daily(predictions)  # 168 hours → 7 days
+
+# 5. OUTPUT
+{
+  "Mon": {waveHeight: 1.2, wavePeriod: 10, ...},
+  "Tue": {waveHeight: 1.3, wavePeriod: 10.5, ...},
   ...
 }
-
-# 3. PREDICTION
-Model predicts → {
-  skillLevel: "Intermediate",
-  skillConfidence: 0.92,
-  preferredWaveHeight: 1.7,
-  preferredWindSpeed: 11.2
-}
-
-# 4. APPLICATION
-Backend uses predictions to adjust suitability scores
-for spot recommendations
 ```
 
-**Minimum Requirements:**
-- 10+ sessions per user for training
-- At least 50 total sessions for robust model
+**Model Architecture:**
+- LSTM 64 units → LSTM 32 units (Encoder)
+- RepeatVector → LSTM 32 → LSTM 16 → Dense 6 (Decoder)
+- Trained on 41,985 sequences from historical data
 
 **Key Files:**
-- `train_personalization_model.py` - Training pipeline
-- `predict_personalization.py` - Inference service
-- `preference_model.joblib` - Trained models
-- `preference_encoders.joblib` - Label encoders
+- `train_wave_forecast_lstm.py` - LSTM training pipeline
+- `forecast_7day_service.py` - 7-day forecast service
+- `wave_forecast_multioutput_lstm.keras` - Trained LSTM model
+- `wave_forecast_scaler_X_multioutput.joblib` - Input scaler
+- `wave_forecast_scaler_y_multioutput.joblib` - Output scaler
 
 ### **ML Workflow:**
 
@@ -217,7 +207,7 @@ Located in: `surfapp--backend/`
 1. Load environment variables (.env)
 2. Connect to MongoDB (optional, graceful degradation)
 3. Initialize EnhancedSuitabilityCalculator
-4. Mount routes: /api/auth, /api/sessions, /api/personalization
+4. Mount routes: /api/auth, /api/sessions
 5. Start server on PORT 3000
 ```
 
@@ -708,9 +698,6 @@ startSession(userId, spotId, spotName, conditions) → Promise<{sessionId}>
 endSession(sessionId, rating, wouldReturn, comments) → Promise<Session>
 getUserSessions(userId, limit) → Promise<{sessions[], total}>
 getUserInsights(userId) → Promise<Insights>
-
-// Personalization
-getPersonalizedRecommendations(userId, spotId) → Promise<Recommendations>
 ```
 
 **Caching Strategy:**
@@ -865,26 +852,8 @@ filterSpotsByRadius(spots, userLocation, radiusKm) → Nearby Spots
       └─ POST /api/sessions/:id/end
          ├─ Backend updates Session
          │  └─ {endTime, duration: 90, rating: 5, ...}
-         └─ Triggers personalization update
-            └─ User has 11 sessions now
-               └─ Eligible for ML personalization
-
-6. Personalization Training (Background)
-   └─ train_personalization_model.py
-      ├─ Load user's 11 sessions
-      ├─ Extract features
-      │  ├─ avg_wave_height: 1.7m
-      │  ├─ prefers_high_waves: 1
-      │  └─ avg_rating: 4.5
-      ├─ Predict preferences
-      │  ├─ preferredWaveHeight: 1.8m
-      │  └─ preferredWindSpeed: 11 km/h
-      └─ Save to preference_model.joblib
-
-7. Next Session
-   └─ Backend applies learned preferences
-      └─ Spots ranked higher if conditions match
-         learned patterns (1.8m waves, 11 km/h winds)
+         └─ Session saved to MongoDB
+            └─ Available for analytics and insights
 ```
 
 ### **Scenario 3: Offline Usage**
@@ -1035,17 +1004,6 @@ GET /api/sessions/user/:userId/insights
     avgRating,
     preferredConditions,
     ...
-  }
-```
-
-### **Personalization Endpoints**
-
-```
-GET /api/personalization/recommendations/:userId/:spotId
-  Response: {
-    personalizedScore,
-    insights,
-    recommendations
   }
 ```
 
@@ -1241,8 +1199,7 @@ Surf-Ceylon/
 │   ├── EnhancedSuitabilityCalculator.js  # Scoring engine (650 lines)
 │   ├── routes/
 │   │   ├── auth.js            # Authentication
-│   │   ├── sessions.js        # Session tracking
-│   │   └── personalization.js # ML personalization
+│   │   └── sessions.js        # Session tracking
 │   ├── models/
 │   │   ├── User.js            # User schema
 │   │   └── Session.js         # Session schema
@@ -1250,11 +1207,12 @@ Surf-Ceylon/
 │   └── .env.example
 │
 ├── surfapp--ml-engine/         # Python ML Engine
-│   ├── surf_forecast_model.joblib        # Trained model (72 MB)
-│   ├── preference_model.joblib           # Personalization model
-│   ├── train_model.py                    # Training script (361 lines)
-│   ├── train_personalization_model.py    # Personalization training (405 lines)
-│   ├── predict_service.py                # Production inference (231 lines)
+│   ├── surf_forecast_model.joblib        # Random Forest model (127 MB)
+│   ├── wave_forecast_multioutput_lstm.keras  # LSTM model (164 KB)
+│   ├── train_model.py                    # RF training script (361 lines)
+│   ├── train_wave_forecast_lstm.py       # LSTM training script
+│   ├── spot_recommender_service.py       # Model 1 inference (204 lines)
+│   ├── forecast_7day_service.py          # Model 2 inference (482 lines)
 │   ├── collect_historical_data.py        # Data collection
 │   ├── validate_features.py              # Feature analysis
 │   ├── model_features.txt                # Feature list
@@ -1295,7 +1253,7 @@ Surf-Ceylon/
 **Total Lines of Code:** ~15,000+  
 **Languages:** JavaScript, Python, JSX  
 **Architecture:** Microservices (Frontend → Backend → ML Engine → Database)  
-**ML Models:** 2 (Forecast + Personalization)  
+**ML Models:** 2 (Random Forest + LSTM)  
 **API Endpoints:** 15+  
 **Surf Spots:** 31 (across Sri Lanka)  
 **UI Screens:** 8 major screens  

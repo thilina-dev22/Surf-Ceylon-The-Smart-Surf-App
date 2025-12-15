@@ -7,7 +7,6 @@ const moment = require('moment');
 const fs = require('fs');
 const EnhancedSuitabilityCalculator = require('./EnhancedSuitabilityCalculator');
 const sessionRoutes = require('./routes/sessions');
-const personalizationRoutes = require('./routes/personalization');
 const authRoutes = require('./routes/auth');
 require('dotenv').config();
 
@@ -152,9 +151,6 @@ app.use(express.urlencoded({ extended: true }));
 // Mount session routes
 app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
-
-// Mount personalization routes
-app.use('/api/personalization', personalizationRoutes);
 
 // Request logging middleware
 app.use((req, res, next) => {
