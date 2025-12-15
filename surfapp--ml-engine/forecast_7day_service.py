@@ -12,7 +12,7 @@ import json
 import numpy as np
 import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Try to load dotenv (optional)
 try:
@@ -21,7 +21,38 @@ try:
 except ImportError:
     print("⚠️  python-dotenv not installed. Using environment variables directly.", file=sys.stderr)
 
+# Multiple API keys for rotation (19 free-tier keys with 10 requests/day each)
+API_KEYS = [
+    "2b9c359a-a5a8-11f0-8208-0242ac130006-2b9c3630-a5a8-11f0-8208-0242ac130006",
+    "af1036a4-a5be-11f0-8208-0242ac130006-af10371c-a5be-11f0-8208-0242ac130006",
+    "a3cc1756-a5c1-11f0-b808-0242ac130006-a3cc17ba-a5c1-11f0-b808-0242ac130006",
+    "2c822782-a5c4-11f0-9727-0242ac130006-2c8227e6-a5c4-11f0-9727-0242ac130006",
+    "68a5ab3a-a66e-11f0-a2a5-0242ac130006-68a5ac02-a66e-11f0-a2a5-0242ac130006",
+    "943fd418-a679-11f0-a2a5-0242ac130006-943fd490-a679-11f0-a2a5-0242ac130006",
+    "bb8f7ae8-c5cb-11f0-a8f4-0242ac130003-bb8f7b42-c5cb-11f0-a8f4-0242ac130003",
+    "204f4594-c5cc-11f0-b4de-0242ac130003-204f463e-c5cc-11f0-b4de-0242ac130003",
+    "3fd3b6ca-c5cc-11f0-b4de-0242ac130003-3fd3b72e-c5cc-11f0-b4de-0242ac130003",
+    "fe940b6e-c5cc-11f0-bd1c-0242ac130003-fe940bfa-c5cc-11f0-bd1c-0242ac130003",
+    "24c61764-c5cd-11f0-a8f4-0242ac130003-24c617f0-c5cd-11f0-a8f4-0242ac130003",
+    "5c476b8e-c5cd-11f0-b5c3-0242ac130003-5c476c1a-c5cd-11f0-b5c3-0242ac130003",
+    "7d79cf90-c5cd-11f0-b5c3-0242ac130003-7d79d328-c5cd-11f0-b5c3-0242ac130003",
+    "9dc164de-c5cd-11f0-b5c3-0242ac130003-9dc16542-c5cd-11f0-b5c3-0242ac130003",
+    "ee8d38a2-c5cd-11f0-a0d3-0242ac130003-ee8d391a-c5cd-11f0-a0d3-0242ac130003",
+    "20a872ca-c5ce-11f0-a8f4-0242ac130003-20a87356-c5ce-11f0-a8f4-0242ac130003",
+    "57df12bc-c5ce-11f0-b4de-0242ac130003-57df1334-c5ce-11f0-b4de-0242ac130003",
+    "7b33f174-c5ce-11f0-a0d3-0242ac130003-7b33f200-c5ce-11f0-a0d3-0242ac130003",
+    "964936d6-c5ce-11f0-a148-0242ac130003-9649376c-c5ce-11f0-a148-0242ac130003"
+]
+
+# Global index to track which API key to use next (rotates through all keys)
+current_api_key_index = 0
+
+# Legacy support: check .env file for single key (will be added to rotation)
 STORMGLASS_API_KEY = os.getenv("STORMGLASS_API_KEY")
+if STORMGLASS_API_KEY and STORMGLASS_API_KEY != 'your_api_key_here':
+    # Add .env key to rotation if not already present
+    if STORMGLASS_API_KEY not in API_KEYS:
+        API_KEYS.insert(0, STORMGLASS_API_KEY)
 
 # Model files
 MODEL_FILE = 'wave_forecast_multioutput_lstm.keras'
@@ -68,18 +99,21 @@ except ImportError:
 
 def fetch_recent_data_from_api(lat, lng, hours=168):
     """
-    Fetch past N hours of data from StormGlass API
-    Returns None if API fails (to trigger mock data fallback)
+    Fetch past N hours of data from StormGlass API with intelligent key rotation
+    Tries all 19 API keys in sequence until one succeeds
+    Returns None if all API keys fail (to trigger mock data fallback)
     """
+    global current_api_key_index
+    
     if not REQUESTS_AVAILABLE:
         print("  requests library not available", file=sys.stderr)
         return None
     
-    if not STORMGLASS_API_KEY or STORMGLASS_API_KEY == 'your_api_key_here':
-        print("  StormGlass API key not configured", file=sys.stderr)
+    if not API_KEYS or len(API_KEYS) == 0:
+        print("  No API keys configured", file=sys.stderr)
         return None
     
-    end_time = datetime.utcnow()
+    end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=hours)
     
     url = "https://api.stormglass.io/v2/weather/point"
@@ -91,31 +125,69 @@ def fetch_recent_data_from_api(lat, lng, hours=168):
         'params': ','.join(FEATURE_COLS)
     }
     
-    headers = {'Authorization': STORMGLASS_API_KEY}
+    # Try all API keys in rotation
+    keys_tried = 0
+    max_keys_to_try = len(API_KEYS)
     
-    try:
-        print(f"  Fetching {hours}h of data from StormGlass API...", file=sys.stderr)
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+    while keys_tried < max_keys_to_try:
+        # Get current API key
+        api_key = API_KEYS[current_api_key_index]
+        key_number = current_api_key_index + 1
         
-        if response.status_code == 200:
-            data = response.json()
-            return process_stormglass_data(data)
-        elif response.status_code == 429:
-            print(f"  API quota exceeded (429). Using mock data.", file=sys.stderr)
-            return None
-        else:
-            print(f"  API error {response.status_code}. Using mock data.", file=sys.stderr)
-            return None
+        headers = {'Authorization': api_key}
+        
+        try:
+            print(f"  Fetching {hours}h of data using API Key #{key_number}/{len(API_KEYS)}...", file=sys.stderr)
+            response = requests.get(url, params=params, headers=headers, timeout=10)
             
-    except requests.exceptions.Timeout:
-        print(f"  API timeout. Using mock data.", file=sys.stderr)
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"  API request failed: {e}. Using mock data.", file=sys.stderr)
-        return None
-    except Exception as e:
-        print(f"  Error fetching data: {e}. Using mock data.", file=sys.stderr)
-        return None
+            if response.status_code == 200:
+                print(f"  ✅ Success with API Key #{key_number}", file=sys.stderr)
+                data = response.json()
+                # Advance to next key for future requests (round-robin)
+                current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
+                return process_stormglass_data(data)
+            
+            elif response.status_code == 402:
+                print(f"  ⚠️  API Key #{key_number}: Payment Required (402). Trying next key...", file=sys.stderr)
+                # Move to next key immediately
+                current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
+                keys_tried += 1
+                continue
+                
+            elif response.status_code == 429:
+                print(f"  ⚠️  API Key #{key_number}: Rate limit exceeded (429). Trying next key...", file=sys.stderr)
+                # Move to next key immediately
+                current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
+                keys_tried += 1
+                continue
+            
+            else:
+                print(f"  ⚠️  API Key #{key_number}: Error {response.status_code}. Trying next key...", file=sys.stderr)
+                current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
+                keys_tried += 1
+                continue
+                
+        except requests.exceptions.Timeout:
+            print(f"  ⚠️  API Key #{key_number}: Timeout. Trying next key...", file=sys.stderr)
+            current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
+            keys_tried += 1
+            continue
+            
+        except requests.exceptions.RequestException as e:
+            print(f"  ⚠️  API Key #{key_number}: Request failed ({e}). Trying next key...", file=sys.stderr)
+            current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
+            keys_tried += 1
+            continue
+            
+        except Exception as e:
+            print(f"  ⚠️  API Key #{key_number}: Unexpected error ({e}). Trying next key...", file=sys.stderr)
+            current_api_key_index = (current_api_key_index + 1) % len(API_KEYS)
+            keys_tried += 1
+            continue
+    
+    # All keys exhausted
+    print(f"  ❌ All {len(API_KEYS)} API keys exhausted. Using mock data fallback.", file=sys.stderr)
+    return None
 
 
 def process_stormglass_data(api_response):
@@ -390,7 +462,7 @@ def main():
             'metadata': {
                 'dataSource': data_source,
                 'forecastMethod': method,
-                'generatedAt': datetime.utcnow().isoformat() + 'Z'
+                'generatedAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             }
         }
         

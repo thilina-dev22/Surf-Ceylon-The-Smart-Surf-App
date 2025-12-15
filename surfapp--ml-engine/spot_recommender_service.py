@@ -15,7 +15,7 @@ MODEL_FILENAME = 'surf_forecast_model.joblib'
 MODEL_PATH = os.path.join(os.path.dirname(__file__), MODEL_FILENAME)
 
 # Use mock data by default for performance (31 spots with API calls would timeout)
-USE_MOCK_DATA = True  # Set to False only if you have valid API key and want real data
+USE_MOCK_DATA = False  # Model 1 (Random Forest) enabled - uses ML predictions
 
 # Validate API key on startup
 if not STORMGLASS_API_KEY or STORMGLASS_API_KEY == 'your_api_key_here':
@@ -47,8 +47,14 @@ except Exception as e:
 
 # --- Model Loading ---
 try:
-    SURF_PREDICTOR = joblib.load(MODEL_PATH)
-    print("Multi-output Random Forest Model loaded successfully.", file=sys.stderr)
+    model_data = joblib.load(MODEL_PATH)
+    # Extract model from dictionary if wrapped
+    if isinstance(model_data, dict) and 'model' in model_data:
+        SURF_PREDICTOR = model_data['model']
+        print("Multi-output Random Forest Model loaded successfully (from dict).", file=sys.stderr)
+    else:
+        SURF_PREDICTOR = model_data
+        print("Multi-output Random Forest Model loaded successfully.", file=sys.stderr)
 except FileNotFoundError:
     SURF_PREDICTOR = None
     print(f"Warning: Model file not found at '{MODEL_PATH}'. Service will run in simulation mode.", file=sys.stderr)
@@ -111,9 +117,30 @@ def fetch_future_weather_features(coords):
         return None, False
 
 def run_ml_prediction(features):
-    """Run ML model prediction on weather features."""
+    """Run ML model prediction on weather features with feature engineering."""
     try:
+        import numpy as np
+        
+        # Create base DataFrame
         input_df = pd.DataFrame([features], columns=FEATURE_NAMES)
+        
+        # Feature Engineering (MUST MATCH train_model.py)
+        # 1. Swell energy (height² × period)
+        input_df['swellEnergy'] = input_df['swellHeight']**2 * input_df['swellPeriod']
+        
+        # 2. Offshore wind factor (for south coast Sri Lanka, offshore ≈ 270°)
+        input_df['offshoreWind'] = input_df['windSpeed'] * np.cos(np.radians(input_df['windDirection'] - 270))
+        
+        # 3. Combined swell height
+        input_df['totalSwellHeight'] = input_df['swellHeight'] + input_df['secondarySwellHeight']
+        
+        # 4. Wind-swell interaction
+        input_df['windSwellInteraction'] = input_df['windSpeed'] * input_df['swellHeight']
+        
+        # 5. Period ratio
+        input_df['periodRatio'] = input_df['swellPeriod'] / (input_df['secondarySwellPeriod'] + 1)
+        
+        # Now we have 15 features (10 base + 5 engineered)
         predictions_array = SURF_PREDICTOR.predict(input_df)
         predictions = dict(zip(TARGET_NAMES, predictions_array[0]))
         
@@ -129,6 +156,8 @@ def run_ml_prediction(features):
         }
     except Exception as e:
         print(f"Error in ML prediction: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         # Return safe default values
         return {
             'waveHeight': 1.0,
