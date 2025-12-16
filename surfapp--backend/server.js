@@ -158,7 +158,7 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get('/api/spots', (req, res) => {
+app.get('/api/spots', async (req, res) => {
     // Parse user preferences from query parameters
     const userPreferences = {
         skillLevel: req.query.skillLevel || 'Intermediate',
@@ -172,6 +172,82 @@ app.get('/api/spots', (req, res) => {
     };
 
     console.log('User preferences:', userPreferences);
+
+    // --- SESSION-BASED LEARNING: Load user insights from past sessions ---
+    const userId = req.query.userId;
+    if (userId && isMongoConnected) {
+        try {
+            const Session = require('./models/Session');
+            const sessions = await Session.find({ userId }).sort({ createdAt: -1 }).limit(50);
+            
+            if (sessions.length >= 5) {
+                console.log(`Loading session insights for user ${userId} (${sessions.length} sessions)`);
+                
+                // Filter high-rated sessions (4-5 stars)
+                const highRatedSessions = sessions.filter(s => s.rating >= 4);
+                
+                if (highRatedSessions.length > 0) {
+                    // Learn preferred wave height from high-rated sessions
+                    const waveHeights = highRatedSessions
+                        .map(s => s.conditions?.waveHeight)
+                        .filter(h => h != null && h > 0);
+                    
+                    if (waveHeights.length > 0) {
+                        userPreferences.learnedWaveHeight = 
+                            waveHeights.reduce((a, b) => a + b, 0) / waveHeights.length;
+                        console.log(`  Learned wave preference: ${userPreferences.learnedWaveHeight.toFixed(2)}m`);
+                    }
+                    
+                    // Learn preferred wind speed from high-rated sessions
+                    const windSpeeds = highRatedSessions
+                        .map(s => s.conditions?.windSpeed)
+                        .filter(w => w != null && w > 0);
+                    
+                    if (windSpeeds.length > 0) {
+                        userPreferences.learnedWindSpeed = 
+                            windSpeeds.reduce((a, b) => a + b, 0) / windSpeeds.length;
+                        console.log(`  Learned wind preference: ${userPreferences.learnedWindSpeed.toFixed(1)} km/h`);
+                    }
+                    
+                    // Get favorite spots
+                    const spotCounts = {};
+                    const spotRatings = {};
+                    
+                    sessions.forEach(s => {
+                        const spotName = s.spotName;
+                        if (spotName) {
+                            spotCounts[spotName] = (spotCounts[spotName] || 0) + 1;
+                            if (!spotRatings[spotName]) spotRatings[spotName] = [];
+                            if (s.rating) spotRatings[spotName].push(s.rating);
+                        }
+                    });
+                    
+                    // Calculate average ratings per spot
+                    const favoriteSpots = Object.keys(spotCounts)
+                        .map(spotName => ({
+                            name: spotName,
+                            visitCount: spotCounts[spotName],
+                            avgRating: spotRatings[spotName].length > 0 
+                                ? spotRatings[spotName].reduce((a, b) => a + b) / spotRatings[spotName].length 
+                                : 0
+                        }))
+                        .sort((a, b) => {
+                            // Sort by visit count first, then by rating
+                            if (b.visitCount !== a.visitCount) return b.visitCount - a.visitCount;
+                            return b.avgRating - a.avgRating;
+                        })
+                        .slice(0, 5)  // Top 5 favorite spots
+                        .map(s => s.name);
+                    
+                    userPreferences.favoriteSpots = favoriteSpots;
+                    console.log(`  Favorite spots: ${favoriteSpots.join(', ')}`);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading session insights:', error.message);
+            // Continue without session insights if error occurs
+        }
+    }
 
     // --- CACHE LOGIC ---
     const now = Date.now();

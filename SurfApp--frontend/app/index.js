@@ -10,7 +10,7 @@ import { filterSpotsByRadius } from '../data/locationUtils';
 import SpotCard from '../components/SpotCard';
 
 const HomeScreen = () => {
-  const { userPreferences, userLocation, locationLoading, user } = useContext(UserContext);
+  const { userPreferences, userLocation, locationLoading, user, userId } = useContext(UserContext);
   const router = useRouter();
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,7 @@ const HomeScreen = () => {
       if (!isRefresh) setLoading(true);
       setError(null);
       // If no user, we use default preferences (Beginner) which are already in userPreferences
-      const data = await getSpotsData(userPreferences, userLocation); 
+      const data = await getSpotsData(userPreferences, userLocation, userId); 
       
       // Filter spots by 10km radius if user location is available
       const filteredSpots = filterSpotsByRadius(data, userLocation, 10);

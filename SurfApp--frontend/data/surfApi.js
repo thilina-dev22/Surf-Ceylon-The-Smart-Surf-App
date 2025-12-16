@@ -122,14 +122,28 @@ const fetchWithRetry = async (url, options = {}, retries = MAX_RETRIES) => {
  * Fetches the list of surf spots, ranked by suitability based on the user's preferences.
  * @param {Object} preferences - The full user preferences object from UserContext.
  * @param {Object} userLocation - Optional user location {latitude, longitude}
+ * @param {String} userId - Optional userId for session-based personalization
  * @returns {Array<Object>} An array of spot data with forecast and suitability.
  */
-export async function getSpotsData(preferences, userLocation = null) { 
+export async function getSpotsData(preferences, userLocation = null, userId = null) { 
   try {
     // Validate preferences
     if (!preferences || typeof preferences !== 'object') {
       console.warn('Invalid preferences provided to getSpotsData');
       return [];
+    }
+
+    // Try to get userId from AsyncStorage if not provided
+    if (!userId) {
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          const parsed = JSON.parse(userData);
+          userId = parsed.id || parsed._id;
+        }
+      } catch (e) {
+        console.log('Could not retrieve userId from storage:', e.message);
+      }
     }
 
     // Try to get cached data first
@@ -168,8 +182,15 @@ export async function getSpotsData(preferences, userLocation = null) {
       console.warn('Cache read error:', cacheError.message);
     }
 
+    // Add userId to preferences for API call
+    const apiParams = { ...preferences };
+    if (userId) {
+      apiParams.userId = userId;
+      console.log('🎯 Including userId for session-based personalization:', userId);
+    }
+
     // Convert preferences object into URL query string
-    const queryString = new URLSearchParams(preferences).toString(); 
+    const queryString = new URLSearchParams(apiParams).toString(); 
     
     const apiUrl = `${API_BASE_URL}/spots?${queryString}`;
     console.log('Fetching spots from API:', apiUrl);

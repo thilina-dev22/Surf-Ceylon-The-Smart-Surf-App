@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const SpotsListScreen = () => {
-  const { userPreferences, userLocation, user } = useContext(UserContext);
+  const { userPreferences, userLocation, user, userId } = useContext(UserContext);
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -21,7 +21,7 @@ const SpotsListScreen = () => {
     try {
       setLoading(true);
       // Get all spots with distance info - no filtering by location on this screen
-      const data = await getSpotsData(userPreferences, userLocation);
+      const data = await getSpotsData(userPreferences, userLocation, userId);
       setSpots(data);
     } catch (e) {
       console.error("Error fetching spots for list screen:", e);

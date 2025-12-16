@@ -15,7 +15,7 @@ MODEL_FILENAME = 'surf_forecast_model.joblib'
 MODEL_PATH = os.path.join(os.path.dirname(__file__), MODEL_FILENAME)
 
 # Use mock data by default for performance (31 spots with API calls would timeout)
-USE_MOCK_DATA = False  # Model 1 (Random Forest) enabled - uses ML predictions
+USE_MOCK_DATA = True  # Model 1 (Random Forest) enabled - uses ML predictions
 
 # Validate API key on startup
 if not STORMGLASS_API_KEY or STORMGLASS_API_KEY == 'your_api_key_here':

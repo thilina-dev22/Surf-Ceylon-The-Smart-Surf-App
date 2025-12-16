@@ -547,6 +547,50 @@ class EnhancedSuitabilityCalculator {
     }
     
     // Build breakdown object
+    // --- SESSION-BASED PERSONALIZATION BONUSES ---
+    let sessionBonuses = [];
+    
+    // Bonus 1: Favorite Spot Bonus (+15 points if spot is in user's top 5 favorites)
+    if (userProfile.favoriteSpots && Array.isArray(userProfile.favoriteSpots)) {
+      if (userProfile.favoriteSpots.includes(spot.name)) {
+        finalScore += 15;
+        sessionBonuses.push({
+          type: 'favorite_spot',
+          points: 15,
+          message: `⭐ One of your favorite spots!`
+        });
+      }
+    }
+    
+    // Bonus 2: Learned Wave Preference Match (+10 points if within 0.3m of learned preference)
+    if (userProfile.learnedWaveHeight && predictions.waveHeight) {
+      const waveDiff = Math.abs(predictions.waveHeight - userProfile.learnedWaveHeight);
+      if (waveDiff <= 0.3) {
+        finalScore += 10;
+        sessionBonuses.push({
+          type: 'wave_match',
+          points: 10,
+          message: `🌊 Waves match your preferred ${userProfile.learnedWaveHeight.toFixed(1)}m conditions!`
+        });
+      }
+    }
+    
+    // Bonus 3: Learned Wind Preference Match (+5 points if within 5 km/h of learned preference)
+    if (userProfile.learnedWindSpeed && predictions.windSpeed) {
+      const windDiff = Math.abs(predictions.windSpeed - userProfile.learnedWindSpeed);
+      if (windDiff <= 5) {
+        finalScore += 5;
+        sessionBonuses.push({
+          type: 'wind_match',
+          points: 5,
+          message: `💨 Wind matches your preferred ${userProfile.learnedWindSpeed.toFixed(0)} km/h conditions!`
+        });
+      }
+    }
+    
+    // Cap final score at 100
+    finalScore = Math.min(finalScore, 100);
+    
     const breakdown = {
       overall: Math.round(finalScore),
       wave: Math.round(waveScore),
@@ -554,7 +598,8 @@ class EnhancedSuitabilityCalculator {
       time: Math.round(timeScore),
       crowd: crowdData.score,
       safety: safetyData.score,
-      consistency: Math.round(consistencyScore)
+      consistency: Math.round(consistencyScore),
+      sessionBonuses: sessionBonuses  // Include bonus breakdown
     };
     
     // Generate smart recommendations
@@ -566,6 +611,11 @@ class EnhancedSuitabilityCalculator {
       spot,
       currentTime
     );
+    
+    // Add session-based recommendations to the top
+    sessionBonuses.forEach(bonus => {
+      recommendations.unshift(bonus.message);
+    });
     
     // Generate safety warnings
     const warnings = this.generateWarnings(breakdown, safetyData, spot, predictions);

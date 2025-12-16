@@ -7,7 +7,7 @@ import { UserContext } from '../context/UserContext';
 import { getSpotsData } from '../data/surfApi';
 
 const MapScreen = () => {
-  const { userPreferences, userLocation, user } = useContext(UserContext);
+  const { userPreferences, userLocation, user, userId } = useContext(UserContext);
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +19,7 @@ const MapScreen = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await getSpotsData(userPreferences, userLocation);
+        const data = await getSpotsData(userPreferences, userLocation, userId);
         
         const validSpots = data.filter(spot => {
           if (!spot.coords || !Array.isArray(spot.coords) || spot.coords.length !== 2) return false;
