@@ -122,6 +122,18 @@ const ForecastChart = ({ spotId = '2' }) => {
   };
 
   const chartData = getChartData();
+  
+  // Helper function to calculate appropriate decimal places based on data range
+  const getDecimalPlaces = (dataArray) => {
+    const values = dataArray.filter(v => v != null && !isNaN(v));
+    if (values.length === 0) return 1;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min;
+    // If range is very small (< 0.5), use 2 decimals, otherwise use 1
+    return range < 0.5 ? 2 : 1;
+  };
+  
   // For hourly view, make chart 2.5x wider to fit all 24 hours with scrolling
   const baseWidth = Dimensions.get('window').width - 60;
   const chartWidth = viewMode === 'hourly' ? baseWidth * 2.5 : baseWidth;
@@ -223,6 +235,7 @@ const ForecastChart = ({ spotId = '2' }) => {
               }}
               width={chartWidth}
               height={220}
+              yAxisInterval={1}
               chartConfig={{
                 ...commonChartConfig,
                 backgroundColor: '#1e88e5',
@@ -230,12 +243,17 @@ const ForecastChart = ({ spotId = '2' }) => {
                 backgroundGradientTo: '#1565c0',
               }}
               style={styles.chart}
+              segments={2}
               bezier
               withShadow={false}
               withInnerLines={true}
               withOuterLines={true}
               yAxisSuffix="m"
-              fromZero={true}
+              formatYLabel={(value) => {
+                const decimals = getDecimalPlaces(chartData.waveHeight);
+                const num = parseFloat(value);
+                return num.toFixed(decimals);
+              }}
             />
             </ScrollView>
           </View>
@@ -259,6 +277,7 @@ const ForecastChart = ({ spotId = '2' }) => {
               }}
               width={chartWidth}
               height={220}
+              yAxisInterval={1}
               chartConfig={{
                 ...commonChartConfig,
                 backgroundColor: '#43a047',
@@ -266,12 +285,17 @@ const ForecastChart = ({ spotId = '2' }) => {
                 backgroundGradientTo: '#2e7d32',
               }}
               style={styles.chart}
+              segments={2}
               bezier
               withShadow={false}
               withInnerLines={true}
               withOuterLines={true}
               yAxisSuffix=" m/s"
-              fromZero={true}
+              formatYLabel={(value) => {
+                const decimals = getDecimalPlaces(chartData.windSpeed);
+                const num = parseFloat(value);
+                return num.toFixed(decimals);
+              }}
             />
             </ScrollView>
           </View>
@@ -295,6 +319,7 @@ const ForecastChart = ({ spotId = '2' }) => {
               }}
               width={chartWidth}
               height={220}
+              yAxisInterval={1}
               chartConfig={{
                 ...commonChartConfig,
                 backgroundColor: '#fb8c00',
@@ -302,12 +327,17 @@ const ForecastChart = ({ spotId = '2' }) => {
                 backgroundGradientTo: '#ef6c00',
               }}
               style={styles.chart}
+              segments={2}
               bezier
               withShadow={false}
               withInnerLines={true}
               withOuterLines={true}
               yAxisSuffix="s"
-              fromZero={true}
+              formatYLabel={(value) => {
+                const decimals = getDecimalPlaces(chartData.swellPeriod);
+                const num = parseFloat(value);
+                return num.toFixed(decimals);
+              }}
             />
             </ScrollView>
           </View>
