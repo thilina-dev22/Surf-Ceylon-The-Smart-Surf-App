@@ -371,7 +371,7 @@ class WaveForecastTester:
         print(f"   ✅ Saved: {output_file}")
         
         # Save detailed results to JSON
-        results_file = 'test_results.json'
+        results_file = '../testing/test_results.json'
         with open(results_file, 'w') as f:
             json.dump({
                 'timestamp': datetime.now().isoformat(),

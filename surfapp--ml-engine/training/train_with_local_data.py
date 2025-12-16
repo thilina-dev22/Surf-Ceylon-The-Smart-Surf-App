@@ -76,8 +76,8 @@ def main():
     
     # Load data from both surf spots
     files = [
-        'weligama_historical_data_fixed.json',
-        'arugam_bay_historical_data_fixed.json'
+        '../data/weligama_historical_data_fixed.json',
+        '../data/arugam_bay_historical_data_fixed.json'
     ]
     
     dataframes = []

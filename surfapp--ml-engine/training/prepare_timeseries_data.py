@@ -119,13 +119,13 @@ def main():
     
     # Prepare data for both spots
     X_weligama, y_weligama, df_wel = prepare_multioutput_sequences(
-        'weligama_historical_data_fixed.json',
+        '../data/weligama_historical_data_fixed.json',
         LOOKBACK_HOURS,
         FORECAST_HOURS
     )
     
     X_arugam, y_arugam, df_aru = prepare_multioutput_sequences(
-        'arugam_bay_historical_data_fixed.json',
+        '../data/arugam_bay_historical_data_fixed.json',
         LOOKBACK_HOURS,
         FORECAST_HOURS
     )
@@ -191,8 +191,8 @@ def main():
               f"min={x_min:7.2f}, max={x_max:7.2f}")
     
     # Save for training
-    output_x = 'timeseries_X_multioutput.npy'
-    output_y = 'timeseries_y_multioutput.npy'
+    output_x = '../artifacts/timeseries_X_multioutput.npy'
+    output_y = '../artifacts/timeseries_y_multioutput.npy'
     
     np.save(output_x, X_combined)
     np.save(output_y, y_combined)
