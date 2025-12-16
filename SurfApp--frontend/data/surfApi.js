@@ -6,6 +6,29 @@ import surfSpotsData from './surf_spots.json';
 const REQUEST_TIMEOUT = 30000; // 30 seconds (increased for 31 spots)
 const MAX_RETRIES = 2;
 
+// Helper function to generate date labels starting from today
+function generateDateLabels() {
+  const labels = [];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date();
+  
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    const dayName = dayNames[date.getDay()];
+    
+    if (i === 0) {
+      labels.push('Today');
+    } else if (i === 1) {
+      labels.push('Tmrw');
+    } else {
+      labels.push(dayName);
+    }
+  }
+  
+  return labels;
+}
+
 // Local cache configuration
 const CACHE_KEY = 'surf_spots_cache';
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
@@ -282,9 +305,9 @@ export async function getSpotsData(preferences, userLocation = null, userId = nu
  * Returns: Wave Height, Wave Period, Swell Height, Swell Period, Wind Speed, Wind Direction
  * @param {string} spotId - The spot ID to fetch forecast for
  */
-export async function get7DayForecast(spotId = '2') {
+export async function get7DayForecast(spotId = '2', viewMode = 'daily') {
   try {
-    const response = await fetchWithRetry(`${API_BASE_URL}/forecast-chart?spotId=${spotId}`);
+    const response = await fetchWithRetry(`${API_BASE_URL}/forecast-chart?spotId=${spotId}&viewMode=${viewMode}`);
     
     if (!response.ok) {
       throw new Error(`API call failed with status: ${response.status}`);
@@ -292,26 +315,70 @@ export async function get7DayForecast(spotId = '2') {
     
     const data = await response.json();
     
-    // Validate multi-output forecast data structure
-    if (!data || !data.labels || !data.waveHeight || !data.windSpeed) {
+    // Validate forecast data structure (supports both daily and hourly modes)
+    if (!data || !data.labels) {
       throw new Error('Invalid forecast data structure');
+    }
+    
+    // For daily mode, validate daily data
+    if (viewMode === 'daily' && (!data.waveHeight || !data.windSpeed)) {
+      throw new Error('Invalid daily forecast data');
+    }
+    
+    // For hourly mode, validate hourly data
+    if (viewMode === 'hourly' && (!data.hourly || !Array.isArray(data.hourly))) {
+      throw new Error('Invalid hourly forecast data');
     }
     
     return data;
 
   } catch (error) {
     console.error("Error fetching 7-day forecast from API:", error.message);
-    // Return fallback mock data with all parameters
-    return { 
-      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      waveHeight: [1.2, 1.4, 1.3, 1.6, 1.5, 1.4, 1.3],
-      wavePeriod: [10, 11, 10, 12, 11, 10, 10],
-      swellHeight: [1.0, 1.2, 1.1, 1.4, 1.3, 1.2, 1.1],
-      swellPeriod: [12, 13, 12, 14, 13, 12, 12],
-      windSpeed: [15, 14, 16, 13, 15, 14, 15],
-      windDirection: [180, 190, 185, 200, 195, 180, 185],
-      metadata: { dataSource: 'Mock', forecastMethod: 'Fallback' }
-    };
+    // Return fallback mock data based on view mode
+    if (viewMode === 'hourly') {
+      // Generate mock hourly data (168 hours)
+      const hourlyData = [];
+      for (let i = 0; i < 168; i++) {
+        hourlyData.push({
+          hour: i,
+          day: Math.floor(i / 24),
+          hourOfDay: i % 24,
+          waveHeight: 1.2 + Math.sin(i / 12) * 0.3,
+          wavePeriod: 10 + Math.sin(i / 24) * 2,
+          swellHeight: 1.0 + Math.sin(i / 12) * 0.2,
+          swellPeriod: 12 + Math.sin(i / 24) * 2,
+          windSpeed: 15 + Math.sin(i / 8) * 3,
+          windDirection: 180 + Math.sin(i / 6) * 30
+        });
+      }
+      
+      const hourlyByDay = {};
+      hourlyData.forEach(hour => {
+        if (!hourlyByDay[hour.day]) hourlyByDay[hour.day] = [];
+        hourlyByDay[hour.day].push(hour);
+      });
+      
+      return {
+        labels: generateDateLabels(),
+        viewMode: 'hourly',
+        hourly: hourlyData,
+        hourlyByDay,
+        metadata: { dataSource: 'Mock', forecastMethod: 'Fallback', totalHours: 168 }
+      };
+    } else {
+      // Daily fallback
+      return { 
+        labels: generateDateLabels(),
+        viewMode: 'daily',
+        waveHeight: [1.2, 1.4, 1.3, 1.6, 1.5, 1.4, 1.3],
+        wavePeriod: [10, 11, 10, 12, 11, 10, 10],
+        swellHeight: [1.0, 1.2, 1.1, 1.4, 1.3, 1.2, 1.1],
+        swellPeriod: [12, 13, 12, 14, 13, 12, 12],
+        windSpeed: [15, 14, 16, 13, 15, 14, 15],
+        windDirection: [180, 190, 185, 200, 195, 180, 185],
+        metadata: { dataSource: 'Mock', forecastMethod: 'Fallback' }
+      };
+    }
   }
 }
 

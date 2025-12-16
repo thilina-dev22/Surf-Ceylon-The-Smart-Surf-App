@@ -368,9 +368,25 @@ def generate_mock_forecast_from_recent(recent_data):
 
 
 def aggregate_to_daily(hourly_forecast):
-    """Convert 168 hourly predictions to 7 daily averages"""
+    """Convert 168 hourly predictions to 7 daily averages and return both"""
     daily_forecasts = {}
+    hourly_forecasts = []
     
+    # Generate hourly forecasts with timestamps
+    for hour_idx in range(168):
+        hourly_forecasts.append({
+            'hour': hour_idx,
+            'day': hour_idx // 24,
+            'hourOfDay': hour_idx % 24,
+            'waveHeight': round(float(hourly_forecast[hour_idx, 0]), 2),
+            'wavePeriod': round(float(hourly_forecast[hour_idx, 1]), 1),
+            'swellHeight': round(float(hourly_forecast[hour_idx, 2]), 2),
+            'swellPeriod': round(float(hourly_forecast[hour_idx, 3]), 1),
+            'windSpeed': round(float(hourly_forecast[hour_idx, 4]), 1),
+            'windDirection': round(float(hourly_forecast[hour_idx, 5]), 0)
+        })
+    
+    # Generate daily aggregates
     for day in range(7):
         start_hour = day * 24
         end_hour = start_hour + 24
@@ -385,7 +401,7 @@ def aggregate_to_daily(hourly_forecast):
             'windDirection': round(float(day_data[:, 5].mean()), 0)
         }
     
-    return daily_forecasts
+    return daily_forecasts, hourly_forecasts
 
 
 def predict_7day_forecast(lat, lng):
@@ -417,13 +433,13 @@ def predict_7day_forecast(lat, lng):
         forecast_hourly = generate_mock_forecast_from_recent(recent_data)
         forecast_method = "Trend"
     
-    # Step 5: Aggregate to daily forecasts
-    daily_forecasts = aggregate_to_daily(forecast_hourly)
+    # Step 5: Aggregate to daily forecasts and prepare hourly data
+    daily_forecasts, hourly_forecasts = aggregate_to_daily(forecast_hourly)
     
     print(f"  ✅ Forecast generated (Data: {data_source}, Method: {forecast_method})", 
           file=sys.stderr)
     
-    return daily_forecasts, data_source, forecast_method
+    return daily_forecasts, hourly_forecasts, data_source, forecast_method
 
 
 def main():
@@ -445,24 +461,42 @@ def main():
     
     # Generate forecast
     try:
-        forecast, data_source, method = predict_7day_forecast(lat, lng)
+        daily_forecast, hourly_forecast, data_source, method = predict_7day_forecast(lat, lng)
+        
+        # Generate date labels starting from today
+        today = datetime.now(timezone.utc)
+        date_labels = []
+        day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        
+        for i in range(7):
+            forecast_date = today + timedelta(days=i)
+            day_name = day_names[forecast_date.weekday()]
+            if i == 0:
+                label = "Today"
+            elif i == 1:
+                label = "Tmrw"
+            else:
+                label = day_name
+            date_labels.append(label)
         
         # Format output
         result = {
             'location': {'lat': lat, 'lng': lng},
-            'labels': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            'forecast': {
-                'waveHeight': [forecast[d]['waveHeight'] for d in range(7)],
-                'wavePeriod': [forecast[d]['wavePeriod'] for d in range(7)],
-                'swellHeight': [forecast[d]['swellHeight'] for d in range(7)],
-                'swellPeriod': [forecast[d]['swellPeriod'] for d in range(7)],
-                'windSpeed': [forecast[d]['windSpeed'] for d in range(7)],
-                'windDirection': [forecast[d]['windDirection'] for d in range(7)]
+            'labels': date_labels,
+            'daily': {
+                'waveHeight': [daily_forecast[d]['waveHeight'] for d in range(7)],
+                'wavePeriod': [daily_forecast[d]['wavePeriod'] for d in range(7)],
+                'swellHeight': [daily_forecast[d]['swellHeight'] for d in range(7)],
+                'swellPeriod': [daily_forecast[d]['swellPeriod'] for d in range(7)],
+                'windSpeed': [daily_forecast[d]['windSpeed'] for d in range(7)],
+                'windDirection': [daily_forecast[d]['windDirection'] for d in range(7)]
             },
+            'hourly': hourly_forecast,
             'metadata': {
                 'dataSource': data_source,
                 'forecastMethod': method,
-                'generatedAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+                'generatedAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+                'totalHours': len(hourly_forecast)
             }
         }
         

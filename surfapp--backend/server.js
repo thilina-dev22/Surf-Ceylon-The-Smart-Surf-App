@@ -8,6 +8,27 @@ const fs = require('fs');
 const EnhancedSuitabilityCalculator = require('./EnhancedSuitabilityCalculator');
 const sessionRoutes = require('./routes/sessions');
 const authRoutes = require('./routes/auth');
+
+// Helper function to generate date labels starting from today
+function generateDateLabels() {
+    const labels = [];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    for (let i = 0; i < 7; i++) {
+        const date = moment().add(i, 'days');
+        const dayName = dayNames[date.day() === 0 ? 6 : date.day() - 1]; // Adjust for Monday start
+        
+        if (i === 0) {
+            labels.push('Today');
+        } else if (i === 1) {
+            labels.push('Tmrw');
+        } else {
+            labels.push(dayName);
+        }
+    }
+    
+    return labels;
+}
 require('dotenv').config();
 
 const app = express();
@@ -478,7 +499,7 @@ app.get('/api/forecast-chart', async (req, res) => {
                 console.error('7-day forecast script failed:', pythonError);
                 // Fallback to mock data
                 return res.json({
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    labels: generateDateLabels(),
                     waveHeight: [1.2, 1.4, 1.3, 1.6, 1.5, 1.4, 1.3],
                     wavePeriod: [10, 11, 10, 12, 11, 10, 10],
                     swellHeight: [1.0, 1.2, 1.1, 1.4, 1.3, 1.2, 1.1],
@@ -491,18 +512,56 @@ app.get('/api/forecast-chart', async (req, res) => {
 
             try {
                 const forecastData = JSON.parse(pythonOutput);
+                const viewMode = req.query.viewMode || 'daily';
                 
-                // Format for frontend
-                res.json({
-                    labels: forecastData.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    waveHeight: forecastData.forecast.waveHeight,
-                    wavePeriod: forecastData.forecast.wavePeriod,
-                    swellHeight: forecastData.forecast.swellHeight,
-                    swellPeriod: forecastData.forecast.swellPeriod,
-                    windSpeed: forecastData.forecast.windSpeed,
-                    windDirection: forecastData.forecast.windDirection,
-                    metadata: forecastData.metadata || {}
-                });
+                // Check if new format with 'daily' and 'hourly' keys
+                if (forecastData.daily && forecastData.hourly) {
+                    // New format - return based on view mode
+                    if (viewMode === 'hourly') {
+                        // Organize hourly data by day for easier rendering
+                        const hourlyByDay = {};
+                        forecastData.hourly.forEach(hour => {
+                            const day = hour.day;
+                            if (!hourlyByDay[day]) {
+                                hourlyByDay[day] = [];
+                            }
+                            hourlyByDay[day].push(hour);
+                        });
+                        
+                        res.json({
+                            labels: forecastData.labels || generateDateLabels(),
+                            viewMode: 'hourly',
+                            hourly: forecastData.hourly,
+                            hourlyByDay,
+                            metadata: forecastData.metadata || {}
+                        });
+                    } else {
+                        // Daily view
+                        res.json({
+                            labels: forecastData.labels || generateDateLabels(),
+                            viewMode: 'daily',
+                            waveHeight: forecastData.daily.waveHeight,
+                            wavePeriod: forecastData.daily.wavePeriod,
+                            swellHeight: forecastData.daily.swellHeight,
+                            swellPeriod: forecastData.daily.swellPeriod,
+                            windSpeed: forecastData.daily.windSpeed,
+                            windDirection: forecastData.daily.windDirection,
+                            metadata: forecastData.metadata || {}
+                        });
+                    }
+                } else {
+                    // Old format - backward compatibility
+                    res.json({
+                        labels: forecastData.labels || generateDateLabels(),
+                        waveHeight: forecastData.forecast?.waveHeight || forecastData.waveHeight,
+                        wavePeriod: forecastData.forecast?.wavePeriod || forecastData.wavePeriod,
+                        swellHeight: forecastData.forecast?.swellHeight || forecastData.swellHeight,
+                        swellPeriod: forecastData.forecast?.swellPeriod || forecastData.swellPeriod,
+                        windSpeed: forecastData.forecast?.windSpeed || forecastData.windSpeed,
+                        windDirection: forecastData.forecast?.windDirection || forecastData.windDirection,
+                        metadata: forecastData.metadata || {}
+                    });
+                }
             } catch (error) {
                 console.error('Error parsing forecast data:', error);
                 // Fallback to mock data
