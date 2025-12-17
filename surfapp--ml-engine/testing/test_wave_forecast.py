@@ -366,12 +366,12 @@ class WaveForecastTester:
         plt.tight_layout()
         
         # Save plot
-        output_file = 'test_results_comparison.png'
+        output_file = os.path.join(os.path.dirname(__file__), 'test_results_comparison.png')
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"   ✅ Saved: {output_file}")
         
         # Save detailed results to JSON
-        results_file = '../testing/test_results.json'
+        results_file = os.path.join(os.path.dirname(__file__), 'test_results.json')
         with open(results_file, 'w') as f:
             json.dump({
                 'timestamp': datetime.now().isoformat(),

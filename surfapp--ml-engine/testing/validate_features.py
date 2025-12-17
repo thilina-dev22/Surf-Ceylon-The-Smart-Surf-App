@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import json
+import os
 from scipy.stats import pearsonr
 import sys
 
@@ -128,8 +129,9 @@ def create_correlation_heatmap(df):
                 square=True, linewidths=0.5)
     plt.title('Feature-Target Correlation Matrix', fontsize=18, fontweight='bold', pad=20)
     plt.tight_layout()
-    plt.savefig('correlation_heatmap.png', dpi=300, bbox_inches='tight')
-    print("\n✅ Correlation heatmap saved as 'correlation_heatmap.png'")
+    output_path = os.path.join(os.path.dirname(__file__), 'correlation_heatmap.png')
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"\n✅ Correlation heatmap saved as '{output_path}'")
 
 def analyze_missing_data(df):
     """Analyze missing data patterns."""
@@ -188,7 +190,7 @@ if __name__ == '__main__':
     
     # Load both datasets
     dfs = []
-    for file_name in ['weligama_historical_data_fixed.json', 'arugam_bay_historical_data_fixed.json']:
+    for file_name in ['../data/weligama_historical_data_fixed.json', '../data/arugam_bay_historical_data_fixed.json']:
         df = load_historical_data(file_name)
         if df is not None:
             dfs.append(df)
